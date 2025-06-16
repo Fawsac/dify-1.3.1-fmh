@@ -1404,18 +1404,15 @@ class OperationLog(Base):
         db.PrimaryKeyConstraint("id", name="operation_log_pkey"),
         db.Index("operation_log_account_action_idx", "tenant_id", "account_id", "action"),
     )
+
     id = db.Column(StringUUID, server_default=db.text("uuid_generate_v4()"))
-    tenant_id = db.Column(StringUUID)
-    account_id = db.Column(StringUUID)
+    tenant_id = db.Column(StringUUID, nullable=False)
+    account_id = db.Column(StringUUID, nullable=False)
     action = db.Column(db.String(255), nullable=False)
     content = db.Column(db.JSON)
     created_at = db.Column(db.DateTime, nullable=False, server_default=func.current_timestamp())
     created_ip = db.Column(db.String(255), nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False, server_default=func.current_timestamp())
-    app_id = db.Column(StringUUID)
-    app_name = db.Column(db.String(255))
-    type = db.Column(db.String(255))
-    created_by = db.Column(StringUUID)
 
 class EndUser(Base, UserMixin):
     __tablename__ = "end_users"

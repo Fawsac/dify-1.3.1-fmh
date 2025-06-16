@@ -33,6 +33,33 @@ from services.errors.account import AccountRegisterError
 from services.errors.workspace import WorkSpaceNotAllowedCreateError
 from services.feature_service import FeatureService
 from events.record_log import OperationRecordLog
+from models.model import OperationLog
+from extensions.ext_database import db
+
+def Operation_loginlog(app,action,type,account):
+        tenant_id = getattr(app, 'tenant', None)  # 如果 app 不存在或 app.tenant 为空，返回 None
+        tenant_id = tenant_id.id if tenant_id else "00000000-0000-0000-0000-000000000000"  # 如果 tenant 存在，取其 id，否则为 None
+
+        #account_id = getattr(current_user, 'id', None)  # 如果 current_user 不存在或没有 id，返回 None
+        operation_log = OperationLog(
+            tenant_id=tenant_id,
+            account_id=account.id,
+            action=action,
+            content={"metadata":
+                         {"action_by": getattr(account, 'name', ''),
+                          "app_id": getattr(app, 'id', None),
+                          "app_name": getattr(app, 'name', None),
+                          "type": type,
+                          "created_by": getattr(app, 'created_by', None)
+                          }
+                     },
+            created_at=db.func.now(),
+            updated_at=db.func.now(),
+            created_ip=OperationRecordLog.get_client_ip()
+        )
+        db.session.add(operation_log)
+        db.session.commit()
+
 
 class LoginApi(Resource):
     """Resource for user login."""
@@ -95,9 +122,9 @@ class LoginApi(Resource):
 
         token_pair = AccountService.login(account=account, ip_address=extract_remote_ip(request))
         AccountService.reset_login_error_rate_limit(args["email"])
-
-        return {"result": "success", "data": token_pair.model_dump()}
         #OperationRecordLog.Operation_log(action="login_account", type="account", app=None)
+        Operation_loginlog(app=None,action="login",type="account",account=account)
+        return {"result": "success", "data": token_pair.model_dump()}
 
 
 
@@ -136,7 +163,7 @@ class ResetPasswordSendEmailApi(Resource):
                 raise AccountNotFound()
         else:
             token = AccountService.send_reset_password_email(account=account, language=language)
-
+        #Operation_loginlog(app=None,action="reset_password_sendemail",type=email,account=account)
         return {"result": "success", "data": token}
 
 
@@ -168,10 +195,9 @@ class EmailCodeLoginSendEmailApi(Resource):
                 raise AccountNotFound()
         else:
             token = AccountService.send_email_code_login_email(account=account, language=language)
+        #Operation_loginlog(app=None,action="reset_password_sendemail",type=email,account=account)
 
         return {"result": "success", "data": token}
-        #OperationRecordLog.Operation_log(action="login_account", type="account", app=None)
-
 
 class EmailCodeLoginApi(Resource):
     @setup_required

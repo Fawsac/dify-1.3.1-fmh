@@ -2,6 +2,7 @@ from events.app_event import app_model_config_was_updated
 from extensions.ext_database import db
 from models.dataset import AppDatasetJoin
 from models.model import AppModelConfig
+from events.record_log import OperationRecordLog
 
 
 @app_model_config_was_updated.connect
@@ -37,6 +38,7 @@ def handle(sender, **kwargs):
             db.session.add(app_dataset_join)
 
     db.session.commit()
+    OperationRecordLog.Operation_log(app, "publis_app", "app")
 
 
 def get_dataset_ids_from_model_config(app_model_config: AppModelConfig) -> set[str]:

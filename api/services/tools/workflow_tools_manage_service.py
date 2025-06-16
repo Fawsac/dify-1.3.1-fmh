@@ -17,6 +17,7 @@ from models.model import App
 from models.tools import WorkflowToolProvider
 from models.workflow import Workflow
 from services.tools.tools_transform_service import ToolTransformService
+from events.record_log import OperationRecordLog
 
 
 class WorkflowToolManageService:
@@ -83,6 +84,7 @@ class WorkflowToolManageService:
 
         db.session.add(workflow_tool_provider)
         db.session.commit()
+        OperationRecordLog.Operation_log(app, "created_workflow_tool", "workflow")
 
         if labels is not None:
             ToolLabelManager.update_tool_labels(
@@ -170,6 +172,7 @@ class WorkflowToolManageService:
 
         db.session.add(workflow_tool_provider)
         db.session.commit()
+        OperationRecordLog.Operation_log(app, "updated_workflow_tool", "workflow")
 
         if labels is not None:
             ToolLabelManager.update_tool_labels(
@@ -216,7 +219,7 @@ class WorkflowToolManageService:
 
         return result
 
-    @classmethod
+    '''@classmethod
     def delete_workflow_tool(cls, user_id: str, tenant_id: str, workflow_tool_id: str) -> dict:
         """
         Delete a workflow tool.
@@ -229,6 +232,41 @@ class WorkflowToolManageService:
         ).delete()
 
         db.session.commit()
+
+        return {"result": "success"}'''
+
+    @classmethod
+    def delete_workflow_tool(cls, user_id: str, tenant_id: str, workflow_tool_id: str) -> dict:
+        # 先查询要删除的工具提供者
+        provider = db.session.query(WorkflowToolProvider).filter(
+            WorkflowToolProvider.tenant_id == tenant_id,
+            WorkflowToolProvider.id == workflow_tool_id
+        ).first()
+
+        if not provider:
+            raise ValueError("Workflow tool not found")
+
+        # 获取关联的应用程序
+        app = db.session.query(App).filter(
+            App.id == provider.app_id,
+            App.tenant_id == tenant_id
+        ).first()
+
+        # 执行删除操作
+        db.session.query(WorkflowToolProvider).filter(
+            WorkflowToolProvider.tenant_id == tenant_id,
+            WorkflowToolProvider.id == workflow_tool_id
+        ).delete()
+
+        db.session.commit()
+
+        # 记录操作日志（需确保app存在）
+        if app:
+            OperationRecordLog.Operation_log(
+                app=app,
+                action="deleted_workflow_tool",
+                type="workflow"
+            )
 
         return {"result": "success"}
 

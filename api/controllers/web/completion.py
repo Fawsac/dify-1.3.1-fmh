@@ -30,7 +30,7 @@ from libs.helper import uuid_value
 from models.model import AppMode
 from services.app_generate_service import AppGenerateService
 from services.errors.llm import InvokeRateLimitError
-
+#from events.record_log import OperationRecordLog
 
 # define completion api for user
 class CompletionApi(WebApiResource):
@@ -49,6 +49,7 @@ class CompletionApi(WebApiResource):
 
         streaming = args["response_mode"] == "streaming"
         args["auto_generate_name"] = False
+        #OperationRecordLog.Operation_log(app_model, "chat_completion", "chat")
 
         try:
             response = AppGenerateService.generate(
@@ -84,6 +85,7 @@ class CompletionStopApi(WebApiResource):
             raise NotCompletionAppError()
 
         AppQueueManager.set_stop_flag(task_id, InvokeFrom.WEB_APP, end_user.id)
+        #OperationRecordLog.Operation_log(app_model, "stop_completion_chat", "chat")
 
         return {"result": "success"}, 200
 
@@ -107,6 +109,7 @@ class ChatApi(WebApiResource):
 
         streaming = args["response_mode"] == "streaming"
         args["auto_generate_name"] = False
+        #OperationRecordLog.Operation_log(app_model, "chat", "chat")
 
         try:
             response = AppGenerateService.generate(
@@ -145,6 +148,7 @@ class ChatStopApi(WebApiResource):
             raise NotChatAppError()
 
         AppQueueManager.set_stop_flag(task_id, InvokeFrom.WEB_APP, end_user.id)
+        #OperationRecordLog.Operation_log(app_model, "stop_chat", "chat")
 
         return {"result": "success"}, 200
 

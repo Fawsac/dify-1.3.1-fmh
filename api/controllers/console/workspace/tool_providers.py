@@ -18,6 +18,7 @@ from services.tools.builtin_tools_manage_service import BuiltinToolManageService
 from services.tools.tool_labels_service import ToolLabelsService
 from services.tools.tools_manage_service import ToolCommonService
 from services.tools.workflow_tools_manage_service import WorkflowToolManageService
+from events.record_log import OperationRecordLog
 
 
 class ToolProviderListApi(Resource):
@@ -291,6 +292,7 @@ class ToolApiProviderDeleteApi(Resource):
         parser.add_argument("provider", type=str, required=True, nullable=False, location="json")
 
         args = parser.parse_args()
+        OperationRecordLog.Operation_log(app=None, action="delete_tool", type="tool")
 
         return ApiToolManageService.delete_api_tool_provider(
             user_id,
@@ -401,7 +403,7 @@ class ToolWorkflowProviderCreateApi(Resource):
         reqparser.add_argument("labels", type=list[str], required=False, nullable=True, location="json")
 
         args = reqparser.parse_args()
-
+        OperationRecordLog.Operation_log(app=None, action="created_tool", type="tool")
         return WorkflowToolManageService.create_workflow_tool(
             user_id=user_id,
             tenant_id=tenant_id,

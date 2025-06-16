@@ -34,6 +34,7 @@ from services.app_generate_service import AppGenerateService
 from services.errors.app import WorkflowHashNotEqualError
 from services.errors.llm import InvokeRateLimitError
 from services.workflow_service import DraftWorkflowDeletionError, WorkflowInUseError, WorkflowService
+from events.record_log import OperationRecordLog
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +132,7 @@ class DraftWorkflowApi(Resource):
             )
         except WorkflowHashNotEqualError:
             raise DraftWorkflowNotSync()
+        OperationRecordLog.Operation_log(app_model, "recover/sync_draft_workflow", "workflow")
 
         return {
             "result": "success",
@@ -181,6 +183,7 @@ class AdvancedChatDraftWorkflowRunApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
+        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class AdvancedChatDraftRunIterationNodeApi(Resource):
@@ -218,6 +221,7 @@ class AdvancedChatDraftRunIterationNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
+        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class WorkflowDraftRunIterationNodeApi(Resource):
@@ -255,6 +259,7 @@ class WorkflowDraftRunIterationNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
+        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class AdvancedChatDraftRunLoopNodeApi(Resource):
@@ -292,6 +297,7 @@ class AdvancedChatDraftRunLoopNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
+        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class WorkflowDraftRunLoopNodeApi(Resource):
@@ -329,6 +335,8 @@ class WorkflowDraftRunLoopNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
+        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+
 
 
 class DraftWorkflowRunApi(Resource):
@@ -364,6 +372,7 @@ class DraftWorkflowRunApi(Resource):
             return helper.compact_generate_response(response)
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
+        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class WorkflowTaskStopApi(Resource):
@@ -380,6 +389,7 @@ class WorkflowTaskStopApi(Resource):
             raise Forbidden()
 
         AppQueueManager.set_stop_flag(task_id, InvokeFrom.DEBUGGER, current_user.id)
+        OperationRecordLog.Operation_log(app_model, "stop_run_workflow", "workflow")
 
         return {"result": "success"}
 
@@ -413,6 +423,7 @@ class DraftWorkflowNodeRunApi(Resource):
         workflow_node_execution = workflow_service.run_draft_workflow_node(
             app_model=app_model, node_id=node_id, user_inputs=inputs, account=current_user
         )
+        OperationRecordLog.Operation_log(app_model, "Run_draft_workflow_node", "workflow_node")
 
         return workflow_node_execution
 

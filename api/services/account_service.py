@@ -720,6 +720,7 @@ class TenantService:
             # Set the current tenant for the account
             account.current_tenant_id = tenant_account_join.tenant_id
             db.session.commit()
+        #OperationRecordLog.Operation_log(action="switch_workspace", type ="tenant_account", app=None)
 
     @staticmethod
     def get_tenant_members(tenant: Tenant) -> list[Account]:

@@ -26,6 +26,7 @@ from libs.login import login_required
 from models import Account, App
 from services.app_dsl_service import AppDslService, ImportMode
 from services.app_service import AppService
+from events.record_log import OperationRecordLog
 
 ALLOW_CREATE_APP_MODES = ["chat", "agent-chat", "advanced-chat", "workflow", "completion"]
 
@@ -283,6 +284,7 @@ class AppSiteStatus(Resource):
 
         app_service = AppService()
         app_model = app_service.update_app_site_status(app_model, args.get("enable_site"))
+        OperationRecordLog.Operation_log(app_model,action="site-enable",type="api")
 
         return app_model
 
@@ -304,6 +306,7 @@ class AppApiStatus(Resource):
 
         app_service = AppService()
         app_model = app_service.update_app_api_status(app_model, args.get("enable_api"))
+        OperationRecordLog.Operation_log(app_model,action="site-status",type="api")
 
         return app_model
 

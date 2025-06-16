@@ -161,6 +161,8 @@ class WorkflowService:
                 conversation_variables=conversation_variables,
             )
             db.session.add(workflow)
+            # 记录恢复工作流历史版本操作记录
+            OperationRecordLog.Operation_log(app_model, "created_draft_workflow", "workflow")
         # update draft workflow if found
         else:
             workflow.graph = json.dumps(graph)
@@ -169,15 +171,15 @@ class WorkflowService:
             workflow.updated_at = datetime.now(UTC).replace(tzinfo=None)
             workflow.environment_variables = environment_variables
             workflow.conversation_variables = conversation_variables
-
+            # 记录恢复工作流历史版本操作记录
+            #OperationRecordLog.Operation_log(app_model, "synced_draft_workflow", "workflow")
         # commit db session changes
         db.session.commit()
 
         # trigger app workflow events
         app_draft_workflow_was_synced.send(app_model, synced_draft_workflow=workflow)
 
-        #记录恢复工作流历史版本操作记录
-        OperationRecordLog.Operation_log(app_model, "synced_draft_workflow", "workflow")
+
 
         # return draft workflow
         return workflow
@@ -299,7 +301,7 @@ class WorkflowService:
         repository.save(workflow_node_execution)
 
         #记录运行工作流中的节点
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+        #OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
         return workflow_node_execution
 
@@ -324,6 +326,7 @@ class WorkflowService:
             tenant_id=tenant_id,
             node_id=node_id,
         )
+        #OperationRecordLog.Operation_log( "run_draft_workflow", "workflow",app=None)
 
         return workflow_node_execution
 
@@ -457,6 +460,8 @@ class WorkflowService:
             icon=args.get("icon", "🤖"),
             icon_background=args.get("icon_background", "#FFEAD5"),
         )
+        # 记录更新工作流
+        OperationRecordLog.Operation_log(app_model, "convert_chat-to-workflow", "workflow")
 
         return new_app
 
@@ -551,4 +556,5 @@ class WorkflowService:
             raise WorkflowInUseError("Cannot delete workflow that is published as a tool")
 
         session.delete(workflow)
+
         return True

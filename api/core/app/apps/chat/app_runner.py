@@ -16,6 +16,7 @@ from core.moderation.base import ModerationError
 from core.rag.retrieval.dataset_retrieval import DatasetRetrieval
 from extensions.ext_database import db
 from models.model import App, Conversation, Message
+from events.record_log import OperationRecordLog
 
 logger = logging.getLogger(__name__)
 
@@ -217,3 +218,5 @@ class ChatAppRunner(AppRunner):
         self._handle_invoke_result(
             invoke_result=invoke_result, queue_manager=queue_manager, stream=application_generate_entity.stream
         )
+        OperationRecordLog.Operation_log(app_model, "query_resault_workflow", "workflow")
+
