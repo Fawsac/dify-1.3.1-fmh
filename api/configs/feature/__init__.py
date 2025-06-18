@@ -189,6 +189,7 @@ class MarketplaceConfig(BaseSettings):
     MARKETPLACE_API_URL: HttpUrl = Field(
         description="Marketplace API URL",
         default="https://marketplace.dify.ai",
+        #default="http://localhost:8000/api",
     )
 
 

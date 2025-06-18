@@ -14,7 +14,7 @@ class OperationRecordLog:
 
         return request.remote_addr
 
-    def Operation_log(app,action,type):
+    def Operation_log(app,action,type,remark):
         tenant_id = getattr(app, 'tenant', None)  # 如果 app 不存在或 app.tenant 为空，返回 None
         tenant_id = tenant_id.id if tenant_id else "00000000-0000-0000-0000-000000000000"  # 如果 tenant 存在，取其 id，否则为 None
 
@@ -29,7 +29,8 @@ class OperationRecordLog:
                           "app_id":getattr(app, 'id', None ),
                           "app_name":getattr(app, 'name', None),
                           "type":type,
-                          "created_by":getattr(app, 'created_by', None)
+                          "created_by":getattr(app, 'created_by', None),
+                          "remark": remark
                           }
                      },
             created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -43,16 +44,30 @@ from flask import jsonify
 
 @app.route('/operation_logs', methods=['GET'])
 def get_operation_logs():
-    logs = OperationLog.query.order_by(OperationLog.created_at.desc()).all()
-    log_list = []
-    for log in logs:
-        log_list.append({
+    try:
+        # 添加分页参数（示例：page=1&per_page=100）
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 100, type=int)
+
+        # 分页查询替代全量加载
+        logs = OperationLog.query.order_by(OperationLog.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        # 使用列表推导式构建结果
+        log_list = [{
             'id': log.id,
             'tenant_id': log.tenant_id,
             'account_id': log.account_id,
             'action': log.action,
-            'content': log.content,  # 包含metadata对象
+            'content': log.content,
             'created_at': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
             'created_ip': log.created_ip
-        })
-    return jsonify(log_list)
+        } for log in logs.items]
+
+        return jsonify(log_list)
+
+    except Exception as e:
+        # 捕获并记录异常，返回标准错误响应
+        app.logger.error(f"Failed to fetch logs: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
