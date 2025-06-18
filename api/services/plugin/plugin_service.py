@@ -341,7 +341,6 @@ class PluginService:
         """
         if not dify_config.MARKETPLACE_ENABLED:
             raise ValueError("marketplace is not enabled")
-
         manager = PluginInstaller()
 
         # check if already downloaded
