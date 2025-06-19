@@ -154,6 +154,7 @@ class AppService:
         db.session.commit()
 
         app_was_created.send(app, account=account)
+        OperationRecordLog.Operation_log(app, "create", "app", "创建app应用")
 
         return app
 
@@ -213,7 +214,7 @@ class AppService:
                     return model_config
 
             app = ModifiedApp(app)
-        OperationRecordLog.Operation_log(app,"query","app")
+        OperationRecordLog.Operation_log(app,"query","app", "查看app应用")
 
         return app
 
@@ -233,7 +234,7 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app")
+        OperationRecordLog.Operation_log(app,"update","app", "更新应用信息")
 
         return app
 
@@ -248,7 +249,7 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app")
+        OperationRecordLog.Operation_log(app,"update","app", "更新应用名称")
 
         return app
 
@@ -265,7 +266,7 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app")
+        OperationRecordLog.Operation_log(app,"update","app", "更新应用图标")
 
         return app
 
@@ -283,7 +284,7 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app")
+        #OperationRecordLog.Operation_log(app,"update","app", "更新应用url状态")
 
         return app
 
@@ -301,7 +302,7 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app")
+        #OperationRecordLog.Operation_log(app,"update","app", "更新应用API状态")
 
         return app
 
@@ -312,7 +313,15 @@ class AppService:
         """
         db.session.delete(app)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"deleted","app")
+
+        if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            log_type = "workflow"
+            remark = "删除workflow应用"
+        else:
+            log_type = "app"
+            remark = "删除app应用"
+        OperationRecordLog.Operation_log(app,"delete", log_type, remark)
+        #OperationRecordLog.Operation_log(app,"deleted","app", "删除应用")
 
         # Trigger asynchronous deletion of app and related data
         remove_app_and_related_data_task.delay(tenant_id=app.tenant_id, app_id=app.id)

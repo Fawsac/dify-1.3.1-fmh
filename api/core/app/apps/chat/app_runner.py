@@ -218,5 +218,5 @@ class ChatAppRunner(AppRunner):
         self._handle_invoke_result(
             invoke_result=invoke_result, queue_manager=queue_manager, stream=application_generate_entity.stream
         )
-        OperationRecordLog.Operation_log(app_model, "query_resault_workflow", "workflow")
+        #OperationRecordLog.Operation_log(app_model, "query_resault_workflow", "workflow")
 

@@ -40,34 +40,86 @@ class OperationRecordLog:
         db.session.add(operation_log)
         db.session.commit()
 
-from flask import jsonify
 
-@app.route('/operation_logs', methods=['GET'])
-def get_operation_logs():
-    try:
-        # 添加分页参数（示例：page=1&per_page=100）
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 100, type=int)
+from flask_restful import Resource, inputs, reqparse
+from controllers.console import api
+from controllers.console.wraps import setup_required, login_required, account_initialization_required
+from sqlalchemy import and_
 
-        # 分页查询替代全量加载
-        logs = OperationLog.query.order_by(OperationLog.created_at.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
+class OperationLogListApi(Resource):
+    @setup_required
+    @login_required
+    @account_initialization_required
+    def get(self):
+        # 创建参数解析器
+        parser = reqparse.RequestParser()
+        parser.add_argument('page', type=inputs.int, default=1, location='args')
+        parser.add_argument('per_page', type=inputs.int, default=20, location='args')
+        parser.add_argument('action_by', type=str, location='args')
+        parser.add_argument('action', type=str, location='args')
+        parser.add_argument('type', type=str, location='args')
+        parser.add_argument('start_time', type=str, location='args')
+        parser.add_argument('end_time', type=str, location='args')
+        args = parser.parse_args()
+
+        # 原始查询逻辑保持不变
+        base_query = OperationLog.query
+
+        if args['action_by']:
+            base_query = base_query.filter(
+                OperationLog.content['metadata']['action_by'].astext.ilike(f'%{args["action_by"]}%')
+            )
+
+        if args['action']:
+            base_query = base_query.filter(
+                OperationLog.action.ilike(f'%{args["action"]}%')
+            )
+
+        if args['type']:
+            base_query = base_query.filter(
+                OperationLog.content['metadata']['type'].astext.ilike(f'%{args["type"]}%')
+            )
+
+        if args['start_time'] or args['end_time']:
+            if args['start_time'] and not args['end_time']:
+                base_query = base_query.filter(
+                    OperationLog.created_at >= args['start_time']
+                )
+            elif args['end_time'] and not args['start_time']:
+                base_query = base_query.filter(
+                    OperationLog.created_at <= args['end_time']
+                )
+            elif args['start_time'] and args['end_time']:
+                base_query = base_query.filter(
+                    and_(
+                        OperationLog.created_at >= args['start_time'],
+                        OperationLog.created_at <= args['end_time']
+                    )
+                )
+
+        logs = base_query.order_by(OperationLog.created_at.desc()).paginate(
+            page=args['page'],
+            per_page=args['per_page'],
+            error_out=False
         )
 
-        # 使用列表推导式构建结果
-        log_list = [{
-            'id': log.id,
-            'tenant_id': log.tenant_id,
-            'account_id': log.account_id,
-            'action': log.action,
-            'content': log.content,
-            'created_at': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            'created_ip': log.created_ip
-        } for log in logs.items]
+        log_list = []
+        for log in logs.items:
+            log_list.append({
+                'id': log.id,
+                'tenant_id': log.tenant_id,
+                'account_id': log.account_id,
+                'action': log.action,
+                'content': log.content,
+                'created_at': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                'created_ip': log.created_ip
+            })
 
-        return jsonify(log_list)
-
-    except Exception as e:
-        # 捕获并记录异常，返回标准错误响应
-        app.logger.error(f"Failed to fetch logs: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return {
+            'data': log_list,
+            'total': logs.total,
+            'page': logs.page,
+            'per_page': logs.per_page,
+            'pages': logs.pages
+        }
+api.add_resource(OperationLogListApi, '/operation_logs')

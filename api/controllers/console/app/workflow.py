@@ -59,6 +59,7 @@ class DraftWorkflowApi(Resource):
 
         if not workflow:
             raise DraftWorkflowNotExist()
+        OperationRecordLog.Operation_log(app_model, "restore", "workflow",remark="恢复历史版本")
 
         # return workflow, if not found, return None (initiate graph by frontend)
         return workflow
@@ -132,7 +133,6 @@ class DraftWorkflowApi(Resource):
             )
         except WorkflowHashNotEqualError:
             raise DraftWorkflowNotSync()
-        OperationRecordLog.Operation_log(app_model, "recover/sync_draft_workflow", "workflow")
 
         return {
             "result": "success",
@@ -170,7 +170,7 @@ class AdvancedChatDraftWorkflowRunApi(Resource):
             response = AppGenerateService.generate(
                 app_model=app_model, user=current_user, args=args, invoke_from=InvokeFrom.DEBUGGER, streaming=True
             )
-
+            OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
             return helper.compact_generate_response(response)
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
@@ -183,7 +183,7 @@ class AdvancedChatDraftWorkflowRunApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+
 
 
 class AdvancedChatDraftRunIterationNodeApi(Resource):
@@ -210,7 +210,7 @@ class AdvancedChatDraftRunIterationNodeApi(Resource):
             response = AppGenerateService.generate_single_iteration(
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
-
+            OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
             return helper.compact_generate_response(response)
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
@@ -221,7 +221,7 @@ class AdvancedChatDraftRunIterationNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+        #OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class WorkflowDraftRunIterationNodeApi(Resource):
@@ -248,7 +248,7 @@ class WorkflowDraftRunIterationNodeApi(Resource):
             response = AppGenerateService.generate_single_iteration(
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
-
+            OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
             return helper.compact_generate_response(response)
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
@@ -259,7 +259,7 @@ class WorkflowDraftRunIterationNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+       # OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 class AdvancedChatDraftRunLoopNodeApi(Resource):
@@ -286,7 +286,7 @@ class AdvancedChatDraftRunLoopNodeApi(Resource):
             response = AppGenerateService.generate_single_loop(
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
-
+            OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
             return helper.compact_generate_response(response)
         except services.errors.conversation.ConversationNotExistsError:
             raise NotFound("Conversation Not Exists.")
@@ -297,7 +297,7 @@ class AdvancedChatDraftRunLoopNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+        #OperationRecordLog.Operation_log(app_model,"run", "workflow", "执行workflow草稿节点")
 
 
 class WorkflowDraftRunLoopNodeApi(Resource):
@@ -324,6 +324,7 @@ class WorkflowDraftRunLoopNodeApi(Resource):
             response = AppGenerateService.generate_single_loop(
                 app_model=app_model, user=current_user, node_id=node_id, args=args, streaming=True
             )
+            OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
 
             return helper.compact_generate_response(response)
         except services.errors.conversation.ConversationNotExistsError:
@@ -335,7 +336,6 @@ class WorkflowDraftRunLoopNodeApi(Resource):
         except Exception:
             logging.exception("internal server error.")
             raise InternalServerError()
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
 
 
 
@@ -368,11 +368,11 @@ class DraftWorkflowRunApi(Resource):
                 invoke_from=InvokeFrom.DEBUGGER,
                 streaming=True,
             )
-
+            OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
             return helper.compact_generate_response(response)
         except InvokeRateLimitError as ex:
             raise InvokeRateLimitHttpError(ex.description)
-        OperationRecordLog.Operation_log(app_model, "run_draft_workflow", "workflow")
+       # OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
 
 
 class WorkflowTaskStopApi(Resource):
@@ -389,7 +389,7 @@ class WorkflowTaskStopApi(Resource):
             raise Forbidden()
 
         AppQueueManager.set_stop_flag(task_id, InvokeFrom.DEBUGGER, current_user.id)
-        OperationRecordLog.Operation_log(app_model, "stop_run_workflow", "workflow")
+        OperationRecordLog.Operation_log(app_model, "stop-run", "workflow", "停止执行workflow草稿节点")
 
         return {"result": "success"}
 
@@ -423,7 +423,7 @@ class DraftWorkflowNodeRunApi(Resource):
         workflow_node_execution = workflow_service.run_draft_workflow_node(
             app_model=app_model, node_id=node_id, user_inputs=inputs, account=current_user
         )
-        OperationRecordLog.Operation_log(app_model, "Run_draft_workflow_node", "workflow_node")
+        OperationRecordLog.Operation_log(app_model, "run", "workflow", "执行workflow草稿节点")
 
         return workflow_node_execution
 

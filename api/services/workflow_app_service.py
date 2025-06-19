@@ -87,6 +87,7 @@ class WorkflowAppService:
             app_model,
             "query",
             "workflow_app_logs",
+            "查看workflow"
         )
         return {
             "page": page,

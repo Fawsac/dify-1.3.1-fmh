@@ -15,4 +15,4 @@ def handle(sender, **kwargs):
     )
     db.session.add(installed_app)
     db.session.commit()
-    OperationRecordLog.Operation_log(app,"created","app")
+    #OperationRecordLog.Operation_log(app,"create","app","创建app应用")

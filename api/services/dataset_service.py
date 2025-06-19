@@ -72,7 +72,7 @@ from tasks.enable_segments_to_index_task import enable_segments_to_index_task
 from tasks.recover_document_indexing_task import recover_document_indexing_task
 from tasks.retry_document_indexing_task import retry_document_indexing_task
 from tasks.sync_website_document_indexing_task import sync_website_document_indexing_task
-
+from events.record_log import OperationRecordLog
 
 class DatasetService:
     @staticmethod
@@ -437,6 +437,7 @@ class DatasetService:
             filtered_data["retrieval_model"] = data["retrieval_model"]
 
             dataset.query.filter_by(id=dataset_id).update(filtered_data)
+            OperationRecordLog.Operation_log(action="update", type="knowledge", app=dataset, remark="修改知识库")
 
             db.session.commit()
             if action:
@@ -456,6 +457,8 @@ class DatasetService:
 
         db.session.delete(dataset)
         db.session.commit()
+        OperationRecordLog.Operation_log(action="delete", type="knowledge", app=dataset, remark="删除知识库")
+
         return True
 
     @staticmethod
@@ -765,6 +768,8 @@ class DocumentService:
     @staticmethod
     def delete_documents(dataset: Dataset, document_ids: list[str]):
         documents = db.session.query(Document).filter(Document.id.in_(document_ids)).all()
+        OperationRecordLog.Operation_log(action="deleted", type="knowledge", app=None, remark="删除知识库中的文档")
+
         file_ids = [
             document.data_source_info_dict["upload_file_id"]
             for document in documents
@@ -1405,6 +1410,7 @@ class DocumentService:
         dataset.name = cut_name + "..."
         dataset.description = "useful for when you want to answer queries about the " + documents[0].name
         db.session.commit()
+        OperationRecordLog.Operation_log(action="create", type="knowledge", app=dataset, remark="创建知识库")
 
         return dataset, documents, batch
 

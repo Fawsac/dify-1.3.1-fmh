@@ -136,7 +136,6 @@ class GetProcessRuleApi(Resource):
             if dataset_process_rule:
                 mode = dataset_process_rule.mode
                 rules = dataset_process_rule.rules_dict
-        OperationRecordLog.Operation_log(action="created_knowledge", type="knowledge", app=None)
 
         return {"mode": mode, "rules": rules, "limits": limits}
 

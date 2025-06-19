@@ -192,8 +192,8 @@ class AccountService:
         account.password = base64_password_hashed
         account.password_salt = base64_salt
         db.session.commit()
-        OperationRecordLog.Operation_log(action="update_password", type
-="account",app=None)
+        OperationRecordLog.Operation_log(action="update", type
+="account",app=None,remark="更新用户密码")
 
         return account
 
@@ -245,8 +245,8 @@ class AccountService:
         db.session.add(account)
         db.session.commit()
 
-        OperationRecordLog.Operation_log(action="created_account", type
-        ="account", app=None)
+        OperationRecordLog.Operation_log(action="created", type
+        ="account", app=None,remark="新建用户")
         return account
 
     @staticmethod
@@ -299,7 +299,7 @@ class AccountService:
         """Delete account. This method only adds a task to the queue for deletion."""
         delete_account_task.delay(account.id)
         OperationRecordLog.Operation_log(action="deleted_account", type
-        ="account", app=None)
+        ="account", app=None,remark="删除用户")
 
     @staticmethod
     def link_account_integrate(provider: str, open_id: str, account: Account) -> None:
@@ -370,7 +370,7 @@ class AccountService:
 
         return TokenPair(access_token=access_token, refresh_token=refresh_token)
 
-        #OperationRecordLog.Operation_log(action="login_account", type="account", app=None)
+
 
     @staticmethod
     def logout(*, account: Account) -> None:
@@ -378,7 +378,7 @@ class AccountService:
         if refresh_token:
             AccountService._delete_refresh_token(refresh_token.decode("utf-8"), account.id)
         OperationRecordLog.Operation_log(action="logout_account", type
-        ="account", app=None)
+        ="account", app=None,remark="登出用户")
 
     @staticmethod
     def refresh_token(refresh_token: str) -> TokenPair:
@@ -430,7 +430,7 @@ class AccountService:
         cls.reset_password_rate_limiter.increment_rate_limit(account_email)
 
         OperationRecordLog.Operation_log(action="send_reset_password_email", type
-        ="account", app=None)
+        ="account", app=None,remark="发送重置密码邮件")
         return token
 
 
@@ -822,11 +822,11 @@ class TenantService:
         ta = TenantAccountJoin.query.filter_by(tenant_id=tenant.id, account_id=account.id).first()
         if not ta:
             raise MemberNotInTenantError("Member not in tenant.")
-        OperationRecordLog.Operation_log(action="deleted_tenant_account", type
-        ="tenant_account", app=None)
+
         db.session.delete(ta)
         db.session.commit()
-
+        OperationRecordLog.Operation_log(action="deleted", type
+    ="account", app=None, remark="用户移除团队")
 
     @staticmethod
     def update_member_role(tenant: Tenant, member: Account, new_role: str, operator: Account) -> None:
@@ -1094,8 +1094,6 @@ class RegisterService:
 
             invitation: dict = json.loads(data)
             return invitation
-        OperationRecordLog.Operation_log(action="invite_account", type
-        ="account", app=None)
 
 
 def _generate_refresh_token(length: int = 64):

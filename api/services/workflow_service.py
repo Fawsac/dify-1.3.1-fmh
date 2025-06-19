@@ -162,7 +162,7 @@ class WorkflowService:
             )
             db.session.add(workflow)
             # 记录恢复工作流历史版本操作记录
-            OperationRecordLog.Operation_log(app_model, "created_draft_workflow", "workflow")
+            OperationRecordLog.Operation_log(app_model, "create", "workflow", "创建一个workflow应用")
         # update draft workflow if found
         else:
             workflow.graph = json.dumps(graph)
@@ -171,8 +171,6 @@ class WorkflowService:
             workflow.updated_at = datetime.now(UTC).replace(tzinfo=None)
             workflow.environment_variables = environment_variables
             workflow.conversation_variables = conversation_variables
-            # 记录恢复工作流历史版本操作记录
-            #OperationRecordLog.Operation_log(app_model, "synced_draft_workflow", "workflow")
         # commit db session changes
         db.session.commit()
 
@@ -461,7 +459,7 @@ class WorkflowService:
             icon_background=args.get("icon_background", "#FFEAD5"),
         )
         # 记录更新工作流
-        OperationRecordLog.Operation_log(app_model, "convert_chat-to-workflow", "workflow")
+        OperationRecordLog.Operation_log(app_model, "update", "workflow", "把app应用迁移变为工作流应用")
 
         return new_app
 

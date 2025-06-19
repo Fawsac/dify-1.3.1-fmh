@@ -37,7 +37,7 @@ def handle(sender, **kwargs):
         for dataset_id in added_dataset_ids:
             app_dataset_join = AppDatasetJoin(app_id=app.id, dataset_id=dataset_id)
             db.session.add(app_dataset_join)
-    OperationRecordLog.Operation_log(app,"publis","workflow")
+    OperationRecordLog.Operation_log(app,"publish","workflow","发布工作流应用")
     db.session.commit()
 
 

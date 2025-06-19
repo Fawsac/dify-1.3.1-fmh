@@ -292,7 +292,7 @@ class ToolApiProviderDeleteApi(Resource):
         parser.add_argument("provider", type=str, required=True, nullable=False, location="json")
 
         args = parser.parse_args()
-        OperationRecordLog.Operation_log(app=None, action="delete_tool", type="tool")
+        OperationRecordLog.Operation_log(app=None, action="delete", type="workflow", remark="删除工具")
 
         return ApiToolManageService.delete_api_tool_provider(
             user_id,
@@ -403,7 +403,7 @@ class ToolWorkflowProviderCreateApi(Resource):
         reqparser.add_argument("labels", type=list[str], required=False, nullable=True, location="json")
 
         args = reqparser.parse_args()
-        OperationRecordLog.Operation_log(app=None, action="created_tool", type="tool")
+        OperationRecordLog.Operation_log(app=None, action="create", type="workflow", remark="新建工具")
         return WorkflowToolManageService.create_workflow_tool(
             user_id=user_id,
             tenant_id=tenant_id,

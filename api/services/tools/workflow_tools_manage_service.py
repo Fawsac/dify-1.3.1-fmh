@@ -84,7 +84,7 @@ class WorkflowToolManageService:
 
         db.session.add(workflow_tool_provider)
         db.session.commit()
-        OperationRecordLog.Operation_log(app, "created_workflow_tool", "workflow")
+        OperationRecordLog.Operation_log(app, "created_workflow_tool", "workflow", "将workflow发布为工具")
 
         if labels is not None:
             ToolLabelManager.update_tool_labels(
@@ -172,7 +172,7 @@ class WorkflowToolManageService:
 
         db.session.add(workflow_tool_provider)
         db.session.commit()
-        OperationRecordLog.Operation_log(app, "updated_workflow_tool", "workflow")
+        OperationRecordLog.Operation_log(app, "updated_workflow_tool", "workflow", "更新发布的workflow工作流")
 
         if labels is not None:
             ToolLabelManager.update_tool_labels(
@@ -265,10 +265,11 @@ class WorkflowToolManageService:
             OperationRecordLog.Operation_log(
                 app=app,
                 action="deleted_workflow_tool",
-                type="workflow"
+                type="workflow",
+                remark="删除发布的workflow工作流"
             )
 
-        return {"result": "success"}
+        return {"result": "success"} 
 
     @classmethod
     def get_workflow_tool_by_tool_id(cls, user_id: str, tenant_id: str, workflow_tool_id: str) -> dict:

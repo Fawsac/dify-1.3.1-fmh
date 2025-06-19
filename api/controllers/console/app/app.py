@@ -23,10 +23,11 @@ from fields.app_fields import (
     app_pagination_fields,
 )
 from libs.login import login_required
-from models import Account, App
+from models import Account, App, AppMode
 from services.app_dsl_service import AppDslService, ImportMode
 from services.app_service import AppService
 from events.record_log import OperationRecordLog
+
 
 ALLOW_CREATE_APP_MODES = ["chat", "agent-chat", "advanced-chat", "workflow", "completion"]
 
@@ -284,7 +285,15 @@ class AppSiteStatus(Resource):
 
         app_service = AppService()
         app_model = app_service.update_app_site_status(app_model, args.get("enable_site"))
-        OperationRecordLog.Operation_log(app_model,action="site-enable",type="api")
+        if app_model.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            log_type = "workflow" or "advanced-chat"
+            remark = "更新workflow工作流URL状态"
+        else:
+            log_type = "app"
+            remark = "更新app应用URL状态"
+        OperationRecordLog.Operation_log(app_model, "update", log_type, remark)
+
+        #OperationRecordLog.Operation_log(app_model,"update","app", "更新应用url状态")
 
         return app_model
 
@@ -306,7 +315,13 @@ class AppApiStatus(Resource):
 
         app_service = AppService()
         app_model = app_service.update_app_api_status(app_model, args.get("enable_api"))
-        OperationRecordLog.Operation_log(app_model,action="site-status",type="api")
+        if app_model.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            log_type = "workflow"
+            remark = "更新workflow工作流API状态"
+        else:
+            log_type = "app"
+            remark = "更新app应用API状态"
+        OperationRecordLog.Operation_log(app_model,log_type, remark)
 
         return app_model
 
