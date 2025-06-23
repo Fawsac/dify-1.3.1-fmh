@@ -56,7 +56,6 @@ from tasks.mail_account_deletion_task import send_account_deletion_verification_
 from tasks.mail_email_code_login import send_email_code_login_mail_task
 from tasks.mail_invite_member_task import send_invite_member_mail_task
 from tasks.mail_reset_password_task import send_reset_password_mail_task
-from events.record_log import OperationRecordLog
 
 class TokenPair(BaseModel):
     access_token: str
@@ -193,6 +192,8 @@ class AccountService:
         account.password = base64_password_hashed
         account.password_salt = base64_salt
         db.session.commit()
+        from events.record_log import OperationRecordLog
+
         OperationRecordLog.Operation_log(action="update", type
 ="account",app=None,remark="更新用户密码")
 
@@ -245,6 +246,7 @@ class AccountService:
 
         db.session.add(account)
         db.session.commit()
+        from events.record_log import OperationRecordLog
 
         OperationRecordLog.Operation_log(action="created", type
         ="account", app=None,remark="新建用户")
@@ -299,6 +301,8 @@ class AccountService:
     def delete_account(account: Account) -> None:
         """Delete account. This method only adds a task to the queue for deletion."""
         delete_account_task.delay(account.id)
+        from events.record_log import OperationRecordLog
+
         OperationRecordLog.Operation_log(action="deleted_account", type
         ="account", app=None,remark="删除用户")
 
@@ -378,6 +382,8 @@ class AccountService:
         refresh_token = redis_client.get(AccountService._get_account_refresh_token_key(account.id))
         if refresh_token:
             AccountService._delete_refresh_token(refresh_token.decode("utf-8"), account.id)
+
+        from events.record_log import OperationRecordLog
         OperationRecordLog.Operation_log(action="logout_account", type
         ="account", app=None,remark="登出用户")
 
@@ -429,6 +435,7 @@ class AccountService:
             code=code,
         )
         cls.reset_password_rate_limiter.increment_rate_limit(account_email)
+        from events.record_log import OperationRecordLog
 
         OperationRecordLog.Operation_log(action="send_reset_password_email", type
         ="account", app=None,remark="发送重置密码邮件")
@@ -826,6 +833,8 @@ class TenantService:
 
         db.session.delete(ta)
         db.session.commit()
+        from events.record_log import OperationRecordLog
+
         OperationRecordLog.Operation_log(action="deleted", type
     ="account", app=None, remark="用户移除团队")
 
@@ -846,6 +855,8 @@ class TenantService:
 
         # Update the role of the target member
         target_member_join.role = new_role
+        from events.record_log import OperationRecordLog
+
         OperationRecordLog.Operation_log(action="update_tenant_account", type
         ="tenant_account", app=None)
         db.session.commit()
