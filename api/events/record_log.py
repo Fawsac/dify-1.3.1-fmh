@@ -6,6 +6,9 @@ from flask_login import current_user
 from flask import request
 from datetime import datetime
 
+from requests import delete
+
+
 class OperationRecordLog:
     @staticmethod
     def get_client_ip():
@@ -43,7 +46,8 @@ class OperationRecordLog:
 
 from flask_restful import Resource, inputs, reqparse
 from controllers.console import api
-from controllers.console.wraps import setup_required, login_required, account_initialization_required
+from controllers.console.wraps import setup_required, account_initialization_required
+from libs.login import login_required
 from sqlalchemy import and_
 
 class OperationLogListApi(Resource):
@@ -52,6 +56,7 @@ class OperationLogListApi(Resource):
     @account_initialization_required
     def get(self):
         # 创建参数解析器
+
         parser = reqparse.RequestParser()
         parser.add_argument('page', type=inputs.int, default=1, location='args')
         parser.add_argument('per_page', type=inputs.int, default=20, location='args')
@@ -122,4 +127,98 @@ class OperationLogListApi(Resource):
             'per_page': logs.per_page,
             'pages': logs.pages
         }
+
+
+class OperationLogDetailApi(Resource):
+    @setup_required
+    @login_required
+    @account_initialization_required
+    def delete(self, log_id):
+        # 获取要删除的日志
+        log = OperationLog.query.get(log_id)
+        if not log:
+            return {'error': 'Log not found'}, 404
+
+        # 获取租户ID（使用日志中的租户ID）
+        tenant_id = log.tenant_id
+
+        # 检查用户权限
+        '''user_role = Tenant.get_user_role(current_user, tenant_id)
+        if user_role not in [Tenant.owner.value]:
+            return {'error': 'Permission denied'}, 403'''
+        # 执行删除操作
+
+        try:
+            db.session.delete(log)
+            db.session.commit()
+            return {'result': 'success', 'message': 'Log deleted successfully', 'log_id': log_id}, 200
+        except Exception as e:
+            db.session.rollback()
+            return {'error': str(e)}, 500
+
+
+class OperationLogBatchApi(Resource):
+    @setup_required
+    @login_required
+    @account_initialization_required
+    def delete(self):
+        # 创建参数解析器
+        parser = reqparse.RequestParser()
+        parser.add_argument('log_ids', required=True, location='json', help='Log IDs are required')
+        args = parser.parse_args()
+
+        # 转换 log_ids 字符串为整数列表
+        try:
+            log_ids = args['log_ids'].split(',')
+        except ValueError:
+            return {'error': 'Invalid log_ids format'}, 400
+
+        # 执行批量删除
+        deleted_count = 0
+        errors = []
+
+        try:
+            for log_id in log_ids:
+                # 获取要删除的日志
+                log = OperationLog.query.get(log_id)
+                if not log:
+                    errors.append({'log_id': log_id, 'error': 'Log not found'})
+                    continue
+
+                # 获取租户ID（使用日志中的租户ID）
+                tenant_id = log.tenant_id
+
+                # 检查用户权限
+                '''user_role = TenantService.get_user_role(current_user.id, tenant_id)
+                if user_role not in [Tenant.owner.value]:
+                    errors.append({'log_id': log_id, 'error': 'Permission denied'})
+                    continue'''
+
+                # 执行删除操作
+                db.session.delete(log)
+                deleted_count += 1
+
+            # 提交所有成功的删除操作
+            if deleted_count > 0:
+                db.session.commit()
+
+            # 构造响应
+            response = {
+                'result': 'success' if not errors else 'partial_success',
+                'message': f'Deleted {deleted_count} logs, failed {len(errors)}',
+                'deleted_count': deleted_count,
+                'error_count': len(errors),
+                'errors': errors
+            }
+
+            return response, 200 if deleted_count > 0 else 400
+
+        except Exception as e:
+            db.session.rollback()
+            return {'error': str(e), 'deleted_count': deleted_count}, 500
+
+
+# 注册路由
+api.add_resource(OperationLogDetailApi, '/operation_logs/<string:log_id>')
+api.add_resource(OperationLogBatchApi, '/operation_logs/batch')
 api.add_resource(OperationLogListApi, '/operation_logs')

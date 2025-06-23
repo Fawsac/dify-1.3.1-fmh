@@ -68,6 +68,7 @@ ACCOUNT_REFRESH_TOKEN_PREFIX = "account_refresh_token:"
 REFRESH_TOKEN_EXPIRY = timedelta(days=dify_config.REFRESH_TOKEN_EXPIRE_DAYS)
 
 
+
 class AccountService:
     reset_password_rate_limiter = RateLimiter(prefix="reset_password_rate_limit", max_attempts=1, time_window=60 * 1)
     email_code_login_rate_limiter = RateLimiter(
