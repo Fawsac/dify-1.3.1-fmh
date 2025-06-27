@@ -44,7 +44,7 @@ api.add_resource(AppImportCheckDependenciesApi, "/apps/imports/<string:app_id>/c
 
 # Import other controllers
 from . import admin, apikey, extension, feature, ping, setup, version
-
+from . import log
 # Import app controllers
 from .app import (
     advanced_prompt_template,

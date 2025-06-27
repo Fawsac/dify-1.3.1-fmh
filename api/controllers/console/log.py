@@ -5,8 +5,10 @@ from controllers.console.wraps import setup_required, account_initialization_req
 from libs.login import login_required
 from sqlalchemy import and_
 from models.model import InstalledApp,OperationLog
+from datetime import datetime, timedelta
 from extensions.ext_database import db
-
+from flask_login import current_user
+from models.account import Account,TenantAccountJoin
 class OperationLogListApi(Resource):
     @setup_required
     @login_required
@@ -15,16 +17,33 @@ class OperationLogListApi(Resource):
         # 创建参数解析器
 
         parser = reqparse.RequestParser()
-        parser.add_argument('page', type=inputs.int, default=1, location='args')
-        parser.add_argument('per_page', type=inputs.int, default=20, location='args')
+        parser.add_argument('page', type=int, default=1, location='args')
+        parser.add_argument('per_page', type=int, default=20, location='args')
         parser.add_argument('action_by', type=str, location='args')
         parser.add_argument('action', type=str, location='args')
         parser.add_argument('type', type=str, location='args')
         parser.add_argument('start_time', type=str, location='args')
         parser.add_argument('end_time', type=str, location='args')
         args = parser.parse_args()
+        base_query = db.session.query(OperationLog)
+        current_tenant_id = current_user.current_tenant_id
+        user_role = current_user.role
 
-        base_query = OperationLog.query
+        if current_user.current_tenant_id == "0000":
+            if current_user.role != 'superadmin':
+                pass
+            elif current_user.role == 'admin':
+                managed_tenant_ids = [
+                    tj.tenant_id for tj in
+                    TenantAccountJoin.query.filter_by(account_id=current_user.id).all()
+                ]
+                base_query = base_query.filter(
+                    OperationLog.tenant_id.in_(managed_tenant_ids)
+                )
+            else:  # editor或其他角色
+                return {'error': 'Permission denied'}, 403
+        else:  # editor或其他角色
+            return {'error': 'Permission denied'}, 403
 
         if args['action_by']:
             base_query = base_query.filter(
@@ -36,12 +55,22 @@ class OperationLogListApi(Resource):
                 OperationLog.action.ilike(f'%{args["action"]}%')
             )
 
+        from sqlalchemy import cast, String
+
         if args['type']:
-            base_query = base_query.filter(
-                OperationLog.content['metadata']['type'].astext.ilike(f'%{args["type"]}%')
-            )
+            # 当 type=app 时查询 app 和 workflow 类型
+            if args['type'] == 'app':
+                base_query = base_query.filter(
+                    OperationLog.content['metadata']['type'].astext.in_(['app', 'workflow'])
+                )
+            else:
+                # 其他类型保持原模糊匹配逻辑
+                base_query = base_query.filter(
+                    OperationLog.content['metadata']['type'].astext.ilike(f'%{args["type"]}%')
+                )
 
         if args['start_time'] or args['end_time']:
+            args['start_time'] = datetime.strptime(args['start_time'], '%Y-%m-%d %H:%M:%S')
             if args['start_time'] and not args['end_time']:
                 base_query = base_query.filter(
                     OperationLog.created_at >= args['start_time']
@@ -91,24 +120,25 @@ class OperationLogDetailApi(Resource):
     @account_initialization_required
     def delete(self, log_id):
         # 获取要删除的日志
-        log = OperationLog.query.get(log_id)
+        log = db.session.get(OperationLog, log_id)
         if not log:
             return {'error': 'Log not found'}, 404
 
         # 获取租户ID（使用日志中的租户ID）
-        tenant_id = log.tenant_id
+        #tenant_id = log.tenant_id
+        is_admin = current_user.is_admin
 
-        # 检查用户权限
+        if not is_admin:
+            return {'error': 'Permission denied'}, 403
 
-        # 执行删除操作
-
-        try:
-            db.session.delete(log)
-            db.session.commit()
-            return {'result': 'success', 'message': 'Log deleted successfully', 'log_id': log_id}, 200
-        except Exception as e:
-            db.session.rollback()
-            return {'error': str(e)}, 500
+        else:
+            try:
+                db.session.delete(log)
+                db.session.commit()
+                return {'result': 'success', 'message': 'Log deleted successfully', 'log_id': log_id}, 200
+            except Exception as e:
+                db.session.rollback()
+                return {'error': str(e)}, 500
 
 
 class OperationLogBatchApi(Resource):
@@ -134,7 +164,7 @@ class OperationLogBatchApi(Resource):
         try:
             for log_id in log_ids:
                 # 获取要删除的日志
-                log = OperationLog.query.get(log_id)
+                log = db.session.get(OperationLog, log_id)
                 if not log:
                     errors.append({'log_id': log_id, 'error': 'Log not found'})
                     continue

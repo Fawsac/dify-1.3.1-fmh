@@ -1,6 +1,6 @@
 from extensions.ext_database import db
 from models.model import InstalledApp,OperationLog
-from models.model import Account
+from models.account import Account
 from flask_login import current_user
 from flask import request
 from datetime import datetime
@@ -14,10 +14,13 @@ class OperationRecordLog:
         return request.remote_addr
 
     def Operation_log(app,action,type,remark):
-        tenant_id = getattr(app, 'tenant', None)  # 如果 app 不存在或 app.tenant 为空，返回 None
-        tenant_id = tenant_id.id if tenant_id else "00000000-0000-0000-0000-000000000000"  # 如果 tenant 存在，取其 id，否则为 None
+        tenant_id = getattr(current_user, 'current_tenant_id', None)
 
-        #account_id = getattr(current_user, 'id', None)  # 如果 current_user 不存在或没有 id，返回 None
+        if not tenant_id:
+            tenant_id = getattr(app, 'tenant_id', None)
+
+        if not tenant_id:
+            tenant_id = "00000000-0000-0000-0000-000000000000"
 
         operation_log = OperationLog(
             tenant_id = tenant_id,

@@ -37,10 +37,13 @@ from models.model import OperationLog
 from extensions.ext_database import db
 
 def Operation_loginlog(app,action,type,account,remark):
-        tenant_id = getattr(app, 'tenant', None)  # 如果 app 不存在或 app.tenant 为空，返回 None
-        tenant_id = tenant_id.id if tenant_id else "00000000-0000-0000-0000-000000000000"  # 如果 tenant 存在，取其 id，否则为 None
-
-        #account_id = getattr(current_user, 'id', None)  # 如果 current_user 不存在或没有 id，返回 None
+        current_tenant = getattr(account, 'current_tenant', None)
+        if current_tenant:
+            tenant_id = current_tenant.id
+        else:
+            # 备选方案：尝试从 app 获取
+            tenant = getattr(app, 'tenant', None)
+            tenant_id = tenant.id if tenant else "00000000-0000-0000-0000-000000000000"
         operation_log = OperationLog(
             tenant_id=tenant_id,
             account_id=account.id,
@@ -122,6 +125,10 @@ class LoginApi(Resource):
             }
 
         token_pair = AccountService.login(account=account, ip_address=extract_remote_ip(request))
+        if not getattr(account, 'current_tenant', None) and tenants:
+            account.current_tenant = tenants[0]  # 使用第一个租户作为默认
+            db.session.commit()  # 提交到数据库
+
         AccountService.reset_login_error_rate_limit(args["email"])
         #OperationRecordLog.Operation_log(action="login_account", type="account", app=None)
         Operation_loginlog(app=None,action="login",type="account",account=account,remark="登录")
