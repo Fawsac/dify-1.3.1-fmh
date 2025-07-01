@@ -246,9 +246,11 @@ class AccountService:
 
         db.session.add(account)
         db.session.commit()
-
-        OperationRecordLog.Operation_log(action="created", type
-        ="account", app=None,remark="新建用户")
+        try:
+            OperationRecordLog.Operation_log(action="created", type="account", app=None,remark="新建用户")
+        except Exception as e:
+            logging.error(f"记录操作日志失败: {str(e)}")
+            print(e)
         return account
 
     @staticmethod
@@ -852,7 +854,7 @@ class TenantService:
         target_member_join.role = new_role
 
         OperationRecordLog.Operation_log(action="update_tenant_account", type
-        ="tenant_account", app=None)
+        ="tenant_account", app=None,remark="更新团队成员角色")
         db.session.commit()
 
     @staticmethod

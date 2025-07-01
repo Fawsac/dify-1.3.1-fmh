@@ -8,7 +8,7 @@ from models.model import InstalledApp,OperationLog
 from datetime import datetime, timedelta
 from extensions.ext_database import db
 from flask_login import current_user
-from models.account import Account,TenantAccountJoin
+from models.account import Account,TenantAccountJoin,TenantAccountRole
 class OperationLogListApi(Resource):
     @setup_required
     @login_required
@@ -27,21 +27,15 @@ class OperationLogListApi(Resource):
         args = parser.parse_args()
         base_query = db.session.query(OperationLog)
         current_tenant_id = current_user.current_tenant_id
-        user_role = current_user.role
 
-        if current_user.current_tenant_id == "0000":
-            if current_user.role != 'superadmin':
-                pass
-            elif current_user.role == 'admin':
-                managed_tenant_ids = [
-                    tj.tenant_id for tj in
-                    TenantAccountJoin.query.filter_by(account_id=current_user.id).all()
-                ]
-                base_query = base_query.filter(
-                    OperationLog.tenant_id.in_(managed_tenant_ids)
-                )
-            else:  # editor或其他角色
-                return {'error': 'Permission denied'}, 403
+        tenant_account_role = TenantAccountJoin.query.filter_by(
+            account_id = current_user.id,
+            tenant_id = current_tenant_id
+        ).first()
+
+        if tenant_account_role.role == TenantAccountRole.ADMIN:
+                base_query =base_query.filter(OperationLog.tenant_id==current_tenant_id)
+
         else:  # editor或其他角色
             return {'error': 'Permission denied'}, 403
 

@@ -59,7 +59,6 @@ class DraftWorkflowApi(Resource):
 
         if not workflow:
             raise DraftWorkflowNotExist()
-        OperationRecordLog.Operation_log(app_model, "restore", "workflow",remark="恢复历史版本")
 
         # return workflow, if not found, return None (initiate graph by frontend)
         return workflow
@@ -86,6 +85,7 @@ class DraftWorkflowApi(Resource):
             # TODO: set this to required=True after frontend is updated
             parser.add_argument("environment_variables", type=list, required=False, location="json")
             parser.add_argument("conversation_variables", type=list, required=False, location="json")
+            parser.add_argument("is_restore", type=bool, required=False, default=False, location="json")
             args = parser.parse_args()
         elif "text/plain" in content_type:
             try:
@@ -102,6 +102,7 @@ class DraftWorkflowApi(Resource):
                     "hash": data.get("hash"),
                     "environment_variables": data.get("environment_variables"),
                     "conversation_variables": data.get("conversation_variables"),
+                    "is_restore": data.get("is_restore", False)  # 默认为 False
                 }
             except json.JSONDecodeError:
                 return {"message": "Invalid JSON data"}, 400
@@ -133,6 +134,9 @@ class DraftWorkflowApi(Resource):
             )
         except WorkflowHashNotEqualError:
             raise DraftWorkflowNotSync()
+        # 根据 is_restore 参数记录不同的操作日志
+        if args.get("is_restore",True):
+            OperationRecordLog.Operation_log(app_model, "restore", "workflow",remark="恢复历史版本")
 
         return {
             "result": "success",

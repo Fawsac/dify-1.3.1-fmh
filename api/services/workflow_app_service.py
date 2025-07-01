@@ -86,7 +86,7 @@ class WorkflowAppService:
         OperationRecordLog.Operation_log(
             app_model,
             "query",
-            "workflow_app_logs",
+            "workflow",
             "查看workflow"
         )
         return {

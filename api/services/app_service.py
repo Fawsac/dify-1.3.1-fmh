@@ -154,7 +154,11 @@ class AppService:
         db.session.commit()
 
         app_was_created.send(app, account=account)
-        OperationRecordLog.Operation_log(app, "create", "app", "创建app应用")
+
+        if app_mode in [AppMode.WORKFLOW, AppMode.ADVANCED_CHAT]:
+            OperationRecordLog.Operation_log(app, "create", "workflow", "创建工作流应用")
+        else:
+            OperationRecordLog.Operation_log(app, "create", "app", "创建普通应用")
 
         return app
 
@@ -214,7 +218,11 @@ class AppService:
                     return model_config
 
             app = ModifiedApp(app)
-        OperationRecordLog.Operation_log(app,"query","app", "查看app应用")
+
+        if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            OperationRecordLog.Operation_log(app, "query", "workflow", "查看workflow工作流应用")
+        else:
+            OperationRecordLog.Operation_log(app,"query","app", "查看app应用")
 
         return app
 
@@ -234,7 +242,10 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app", "更新应用信息")
+        if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            OperationRecordLog.Operation_log(app, "update", "workflow", "更新workflow工作流应用")
+        else:
+            OperationRecordLog.Operation_log(app,"update","app", "更新应用信息")
 
         return app
 
@@ -249,7 +260,10 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app", "更新应用名称")
+        if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            OperationRecordLog.Operation_log(app, "update", "workflow", "更新workflow工作流应用名称")
+        else:
+            OperationRecordLog.Operation_log(app,"update","app", "更新app应用名称")
 
         return app
 
@@ -266,7 +280,10 @@ class AppService:
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
-        OperationRecordLog.Operation_log(app,"update","app", "更新应用图标")
+        if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            OperationRecordLog.Operation_log(app, "update", "workflow", "更新workflow工作流应用图标")
+        else:
+            OperationRecordLog.Operation_log(app,"update","app", "更新应用图标")
 
         return app
 

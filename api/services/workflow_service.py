@@ -162,7 +162,7 @@ class WorkflowService:
             )
             db.session.add(workflow)
             # 记录恢复工作流历史版本操作记录
-            OperationRecordLog.Operation_log(app_model, "create", "workflow", "创建一个workflow应用")
+            #OperationRecordLog.Operation_log(app_model, "create", "workflow", "创建一个workflow应用")
         # update draft workflow if found
         else:
             workflow.graph = json.dumps(graph)
