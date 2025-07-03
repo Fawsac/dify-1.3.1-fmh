@@ -382,3 +382,24 @@ class ModelProviderFactory:
         """
         provider_id = ModelProviderID(provider)
         return provider_id.plugin_id, provider_id.provider_name
+
+    def _validate_session(self):
+        """
+        验证当前会话是否有效
+        """
+        from flask import request, g
+        from core.login.login import validate_jwt_token
+
+        # 获取并验证Authorization头
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            raise PermissionError("Missing or invalid Authorization header")
+
+        token = auth_header.split(' ')[1]
+        try:
+            # 验证JWT令牌有效性
+            payload = validate_jwt_token(token)
+            g.current_user = payload.get('user_id')
+        except Exception as e:
+            logger.error(f"Token validation failed: {str(e)}")
+            raise PermissionError("Invalid authentication token")
