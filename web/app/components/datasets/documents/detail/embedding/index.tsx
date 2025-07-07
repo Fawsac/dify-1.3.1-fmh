@@ -25,6 +25,57 @@ import {
   pauseDocIndexing,
   resumeDocIndexing,
 } from '@/service/datasets'
+// 在文件顶部添加事件总线引用
+import eventBus from '@/event-bus';
+
+// 在组件内部添加状态管理
+const [pollingActive, setPollingActive] = useState(true);
+
+// 修改 pollIndexingStatus 函数
+const pollIndexingStatus = async () => {
+  // 添加退出检查 - 核心修改点
+  if (!pollingActive) return;
+
+  try {
+    const response = await fetchIndexingStatus();
+    // ... 原有处理逻辑 ...
+  } catch (error) {
+    // 401错误特殊处理 - 核心修改点
+    if (error?.status === 401) {
+      setPollingActive(false);
+      clearTimeout(pollingTimer);
+
+      showToast({
+        message: t('datasetDocuments.embedding.canceledByLogout'),
+        type: 'error',
+        closable: true, // 允许手动关闭
+        duration: 5000 // 5秒后自动关闭
+      });
+      return;
+    }
+    // ... 其他错误处理 ...
+  }
+
+  // 仅当未退出时继续轮询
+  if (pollingActive) {
+    pollingTimer = setTimeout(pollIndexingStatus, 3000);
+  }
+};
+
+// 添加用户退出事件监听 - 核心修改点
+useEffect(() => {
+  const handleLogout = () => {
+    setPollingActive(false);
+    if (pollingTimer) clearTimeout(pollingTimer);
+  };
+
+  eventBus.on('user_logged_out', handleLogout);
+
+  return () => {
+    eventBus.off('user_logged_out', handleLogout);
+    handleLogout(); // 组件卸载时停止轮询
+  };
+}, []);
 
 type IEmbeddingDetailProps = {
   datasetId?: string

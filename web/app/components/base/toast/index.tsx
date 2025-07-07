@@ -13,6 +13,40 @@ import { createContext, useContext } from 'use-context-selector'
 import ActionButton from '@/app/components/base/action-button'
 import classNames from '@/utils/classnames'
 import { noop } from 'lodash-es'
+// 在文件顶部添加防抖函数
+import debounce from 'lodash/debounce';
+
+// 在Toast组件中添加防抖逻辑
+const ToastContext = () => {
+  // ... 原有状态和逻辑 ...
+
+  // 添加防抖的显示函数 - 核心修改点
+  const debouncedShow = debounce((message, options) => {
+    // 检查抑制标记 - 核心修改点
+    if (options?.suppress) return;
+
+    // 检查是否已有相同消息的Toast
+    if (toasts.some(t => t.message === message)) return;
+
+    // ... 原有显示逻辑 ...
+  }, 300); // 300ms防抖
+
+  // 全局错误处理 - 核心修改点
+  useEffect(() => {
+    const handleGlobalError = (error) => {
+      debouncedShow(error.message, {
+        type: 'error',
+        suppress: error.suppressGlobalToast // 使用抑制标记
+      });
+    };
+
+    eventBus.on('api_error', handleGlobalError);
+
+    return () => eventBus.off('api_error', handleGlobalError);
+  }, []);
+
+  // ... 其他代码 ...
+}
 
 export type IToastProps = {
   type?: 'success' | 'error' | 'warning' | 'info'
