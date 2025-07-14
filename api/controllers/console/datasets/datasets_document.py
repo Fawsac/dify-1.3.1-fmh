@@ -294,7 +294,7 @@ class DatasetDocumentListApi(Resource):
             raise ProviderQuotaExceededError()
         except ModelCurrentlyNotSupportError:
             raise ProviderModelCurrentlyNotSupportError()
-
+        OperationRecordLog.Operation_log(app=dataset, action="create", type="knowledge", remark="上传文档")
         return {"documents": documents, "batch": batch}
 
     @setup_required

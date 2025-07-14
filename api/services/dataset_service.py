@@ -768,7 +768,7 @@ class DocumentService:
     @staticmethod
     def delete_documents(dataset: Dataset, document_ids: list[str]):
         documents = db.session.query(Document).filter(Document.id.in_(document_ids)).all()
-        OperationRecordLog.Operation_log(action="deleted", type="knowledge", app=dataset, remark="删除知识库中的文档")
+        OperationRecordLog.Operation_log(action="delete", type="knowledge", app=dataset, remark="删除知识库中的文档")
 
         file_ids = [
             document.data_source_info_dict["upload_file_id"]

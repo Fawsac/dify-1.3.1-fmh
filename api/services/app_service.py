@@ -233,20 +233,49 @@ class AppService:
         :param args: request args
         :return: App instance
         """
-        app.name = args.get("name")
-        app.description = args.get("description", "")
+        updated_fields = []  # 记录变更字段
+
+        # 检测名称变更
+        if "name" in args and app.name != args["name"]:
+            updated_fields.append("名称")
+            app.name = args["name"]
+
+        # 检测描述变更
+        if "description" in args and app.description != args.get("description", ""):
+            updated_fields.append("描述")
+            app.description = args.get("description", "")
+
+        # 检测图标相关变更
+        icon_updated = False
+        if "icon" in args and app.icon != args["icon"]:
+            icon_updated = True
+            app.icon = args.get("icon")
+        if "icon_background" in args and app.icon_background != args["icon_background"]:
+            icon_updated = True
+            app.icon_background = args.get("icon_background")
+        if icon_updated:
+            updated_fields.append("图标")
+
+        #app.name = args.get("name")
+        #app.description = args.get("description", "")
         app.icon_type = args.get("icon_type", "emoji")
-        app.icon = args.get("icon")
-        app.icon_background = args.get("icon_background")
+        #app.icon = args.get("icon")
+        #app.icon_background = args.get("icon_background")
         app.use_icon_as_answer_icon = args.get("use_icon_as_answer_icon", False)
         app.updated_by = current_user.id
         app.updated_at = datetime.now(UTC).replace(tzinfo=None)
         db.session.commit()
+        remark = "更新应用" + (f"（变更字段: {', '.join(updated_fields)}）" if updated_fields else "")
+        if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+            OperationRecordLog.Operation_log(app, "update", "workflow", remark)
+        else:
+            OperationRecordLog.Operation_log(app, "update", "app", remark)
+        '''
         if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
             OperationRecordLog.Operation_log(app, "update", "workflow", "更新workflow工作流应用")
         else:
             OperationRecordLog.Operation_log(app,"update","app", "更新应用信息")
-
+        '''
         return app
 
     def update_app_name(self, app: App, name: str) -> App:

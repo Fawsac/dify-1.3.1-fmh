@@ -140,7 +140,7 @@ class WorkflowService:
         """
         # fetch draft workflow by app_model
         workflow = self.get_draft_workflow(app_model=app_model)
-
+        original_workflow = self.get_draft_workflow(app_model=app_model) if workflow else None # 获取当前草稿
         if workflow and workflow.unique_hash != unique_hash:
             raise WorkflowHashNotEqualError()
 
@@ -165,12 +165,36 @@ class WorkflowService:
             #OperationRecordLog.Operation_log(app_model, "create", "workflow", "创建一个workflow应用")
         # update draft workflow if found
         else:
+            changes = []
+            # 检测graph变更
+            if original_workflow and json.loads(original_workflow.graph) != graph:
+                changes.append("结构")
+
+            # 检测features变更
+            if original_workflow and json.loads(original_workflow.features) != features:
+                changes.append("特性")
+
+            # 检测环境变量变更
+            if original_workflow and original_workflow.environment_variables != environment_variables:
+                changes.append("环境变量")
+
+            # 检测对话变量变更
+            if original_workflow and original_workflow.conversation_variables != conversation_variables:
+                changes.append("对话变量")
+
+            # 生成备注信息
+            if changes:
+                remark = f"更新工作流（变更: {', '.join(changes)}）"
+                OperationRecordLog.Operation_log(app_model, "update", "workflow", remark=remark)
+
             workflow.graph = json.dumps(graph)
             workflow.features = json.dumps(features)
             workflow.updated_by = account.id
             workflow.updated_at = datetime.now(UTC).replace(tzinfo=None)
             workflow.environment_variables = environment_variables
             workflow.conversation_variables = conversation_variables
+
+
         # commit db session changes
         db.session.commit()
 

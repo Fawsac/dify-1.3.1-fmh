@@ -1,11 +1,12 @@
 import ast
+from http.client import responses
 
 from events.record_log import OperationRecordLog
 from flask_restful import Resource, inputs, reqparse
 from controllers.console import api
 from controllers.console.wraps import setup_required, account_initialization_required
 from libs.login import login_required
-from sqlalchemy import and_,text
+from sqlalchemy import and_,text,cast,String
 from models.model import InstalledApp,OperationLog
 from datetime import datetime, timedelta
 from extensions.ext_database import db
@@ -15,6 +16,7 @@ from services.errors.account import NoPermissionError
 import pandas as pd
 from flask import send_file
 from io import BytesIO
+from flask import request
 
 class OperationLogListApi(Resource):
 
@@ -53,7 +55,7 @@ class OperationLogListApi(Resource):
             else:
                 # 其他类型保持原模糊匹配逻辑
                 base_query = base_query.filter(
-                    OperationLog.content['metadata']['type'].astext.ilike(f'%{args["type"]}%')
+                    cast(OperationLog.content['metadata']['type'],String).ilike(f'%{args["type"]}%')
                 )
 
         if args['start_time'] or args['end_time']:
@@ -80,6 +82,7 @@ class OperationLogListApi(Resource):
     @account_initialization_required
     def get(self):
         # 创建参数解析器
+
         parser = reqparse.RequestParser()
         parser.add_argument('page', type=int, default=1, location='args')
         parser.add_argument('per_page', type=int, default=20, location='args')
@@ -123,6 +126,7 @@ class OperationLogListApi(Resource):
     @account_initialization_required
     def post(self):
         """下载操作日志为Excel文件"""
+        '''
         parser = reqparse.RequestParser()
         parser.add_argument('action_by', type=str, location='json')
         parser.add_argument('action', type=str, location='json')
@@ -130,14 +134,40 @@ class OperationLogListApi(Resource):
         parser.add_argument('start_time', type=str, location='json')
         parser.add_argument('end_time', type=str, location='json')
         args = parser.parse_args()
+        '''
+        json_data = request.get_json()
+        if not json_data:
+            return {'error': 'Invalid JSON body'}, 400
 
+        args = {
+            'action_by': json_data.get('action_by'),
+            'action': json_data.get('action'),
+            'type': json_data.get('type'),
+            'start_time': json_data.get('start_time'),
+            'end_time': json_data.get('end_time')
+        }
         # 复用GET方法的查询构建逻辑
         base_query = self._build_base_query(args)
         # 获取全部符合条件的数据（不分页）
         logs = base_query.order_by(OperationLog.created_at.desc()).all()
+        # 根据type参数确定文件名
+        filename_map = {
+            'app': '应用操作记录',
+            'workflow': '应用操作记录',  # app和workflow都使用相同文件名
+            'knowledge': '知识库操作记录',
+            'account': '用户操作记录'
+        }
+        file_basename = filename_map.get(args.get('type'), '操作日志')
         # 添加数据量限制
-        if len(logs) > 10000:
-            return {'error': 'Too many records to export'}, 400
+        if len(logs) == 0:
+            return {'error': '无导出数据'}, 400
+        # 处理数据截断
+        truncate = len(logs) > 1000
+        if truncate:
+            logs = logs[:1000]
+            filename = f"{file_basename}（前10000条）.xlsx"
+        else:
+            filename = f"{file_basename}.xlsx"
 
         # 转换为DataFrame
         data = []
@@ -165,23 +195,39 @@ class OperationLogListApi(Resource):
         ]
 
         df = pd.DataFrame(data)
-
         # 按指定顺序重排列
         df = df[columns]
         # 生成Excel文件
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, sheet_name='操作日志', index=False)
+            df.to_excel(writer, sheet_name=file_basename, index=False)
 
         output.seek(0)
+        # 创建响应对象
 
-        # 返回文件响应
-        return send_file(
+
+        # 手动设置包含中文的文件名（使用UTF-8编码）
+        from flask import Response
+        from urllib.parse import quote
+        encoded_filename = quote(filename, safe='')
+        content_disposition = f"attachment; filename*=UTF-8''{encoded_filename}"
+
+        # 创建响应对象
+        response = Response(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name='操作日志.xlsx'
+            headers={
+                'Content-Disposition': content_disposition
+            }
         )
+        # 设置状态码和消息头
+        if truncate:
+            response.status_code = 400
+            response.headers['X-Error-Message'] = '仅支持导出最多10000行数据！'
+        else:
+            response.status_code = 200
+
+        return response
 
 
 class OperationLogDetailApi(Resource):

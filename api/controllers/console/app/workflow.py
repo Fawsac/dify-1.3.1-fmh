@@ -132,12 +132,14 @@ class DraftWorkflowApi(Resource):
                 environment_variables=environment_variables,
                 conversation_variables=conversation_variables,
             )
+
+            # 根据 is_restore 参数记录不同的操作日志
+            print(args["is_restore"])
+            if args.get("is_restore", True):
+                OperationRecordLog.Operation_log(app_model, "restore", "workflow", remark="手动恢复历史版本")
+
         except WorkflowHashNotEqualError:
             raise DraftWorkflowNotSync()
-        # 根据 is_restore 参数记录不同的操作日志
-        if args.get("is_restore",True):
-            OperationRecordLog.Operation_log(app_model, "restore", "workflow",remark="恢复历史版本")
-
         return {
             "result": "success",
             "hash": workflow.unique_hash,
