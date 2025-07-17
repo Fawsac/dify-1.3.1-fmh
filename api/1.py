@@ -1,6 +1,6 @@
 import requests
 
-
+'''
 # 测试数组格式
 response_arr = requests.post(
     'http://localhost:5001/test-endpoint',
@@ -13,8 +13,15 @@ response_arr = requests.post(
     json={'name': '测试', 'account_id': "101"}
 )
 print("\n混合格式测试结果:")
-
+'''
 
 i= ['1','2']
 for t in i:
     print(t)
+
+a = ('00000000-0000-0000-0000-000000000000',)
+print(a,type(a))
+
+b= str(a[0])
+
+print(b,type(b))

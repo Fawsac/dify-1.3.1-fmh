@@ -170,6 +170,8 @@ class ToolApiProviderAddApi(Resource):
         parser.add_argument("custom_disclaimer", type=str, required=False, nullable=True, location="json")
 
         args = parser.parse_args()
+        tool_name = args.get("provider") or "未知工具"
+        OperationRecordLog.Operation_log(app=None, action="create", type="workflow", remark=f"创建工具:{tool_name}")
 
         return ApiToolManageService.create_api_tool_provider(
             user_id,
@@ -258,6 +260,9 @@ class ToolApiProviderUpdateApi(Resource):
         parser.add_argument("custom_disclaimer", type=str, required=True, nullable=True, location="json")
 
         args = parser.parse_args()
+        tool_name = args.get("provider") or "未知工具"
+
+        OperationRecordLog.Operation_log(app=None, action="update", type="workflow", remark=f"更新工具：{tool_name}")
 
         return ApiToolManageService.update_api_tool_provider(
             user_id,
@@ -292,7 +297,9 @@ class ToolApiProviderDeleteApi(Resource):
         parser.add_argument("provider", type=str, required=True, nullable=False, location="json")
 
         args = parser.parse_args()
-        OperationRecordLog.Operation_log(app=None, action="delete", type="workflow", remark="删除工具")
+        # 获取工具名称
+        tool_name = args["provider"]
+        OperationRecordLog.Operation_log(app=None, action="delete", type="workflow", remark=f"删除工具：{tool_name}")
 
         return ApiToolManageService.delete_api_tool_provider(
             user_id,
@@ -403,7 +410,6 @@ class ToolWorkflowProviderCreateApi(Resource):
         reqparser.add_argument("labels", type=list[str], required=False, nullable=True, location="json")
 
         args = reqparser.parse_args()
-        OperationRecordLog.Operation_log(app=None, action="create", type="workflow", remark="新建工具")
         return WorkflowToolManageService.create_workflow_tool(
             user_id=user_id,
             tenant_id=tenant_id,
@@ -445,6 +451,7 @@ class ToolWorkflowProviderUpdateApi(Resource):
 
         if not args["workflow_tool_id"]:
             raise ValueError("incorrect workflow_tool_id")
+        #OperationRecordLog.Operation_log(app=None, action="update", type="workflow", remark="更新工具中工作流信息")
 
         return WorkflowToolManageService.update_workflow_tool(
             user_id,
@@ -477,6 +484,7 @@ class ToolWorkflowProviderDeleteApi(Resource):
         reqparser.add_argument("workflow_tool_id", type=uuid_value, required=True, nullable=False, location="json")
 
         args = reqparser.parse_args()
+        #OperationRecordLog.Operation_log(app=None, action="delete", type="workflow", remark="删除工具中工作流信息")
 
         return WorkflowToolManageService.delete_workflow_tool(
             user_id,

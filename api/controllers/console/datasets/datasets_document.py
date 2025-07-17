@@ -840,6 +840,13 @@ class DocumentStatusApi(DocumentResource):
                 document.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 db.session.commit()
 
+                # 记录操作日志
+                OperationRecordLog.Operation_log(
+                    app=dataset,
+                    action="update",
+                    type="knowledge",
+                    remark=f"启用文档: {document.name}"
+                )
                 # Set cache to prevent indexing the same document multiple times
                 redis_client.setex(indexing_cache_key, 600, 1)
 
@@ -856,7 +863,13 @@ class DocumentStatusApi(DocumentResource):
                 document.disabled_by = current_user.id
                 document.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 db.session.commit()
-
+                # 记录操作日志
+                OperationRecordLog.Operation_log(
+                    app=dataset,
+                    action="update",
+                    type="knowledge",
+                    remark=f"停用文档: {document.name}"
+                )
                 # Set cache to prevent indexing the same document multiple times
                 redis_client.setex(indexing_cache_key, 600, 1)
 
@@ -871,6 +884,13 @@ class DocumentStatusApi(DocumentResource):
                 document.archived_by = current_user.id
                 document.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 db.session.commit()
+                # 记录操作日志
+                OperationRecordLog.Operation_log(
+                    app=dataset,
+                    action="update",
+                    type="knowledge",
+                    remark=f"归档文档: {document.name}"
+                )
 
                 if document.enabled:
                     # Set cache to prevent indexing the same document multiple times
@@ -886,7 +906,13 @@ class DocumentStatusApi(DocumentResource):
                 document.archived_by = None
                 document.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 db.session.commit()
-
+                # 记录操作日志
+                OperationRecordLog.Operation_log(
+                    app=dataset,
+                    action="update",
+                    type="knowledge",
+                    remark=f"取消归档文档: {document.name}"
+                )
                 # Set cache to prevent indexing the same document multiple times
                 redis_client.setex(indexing_cache_key, 600, 1)
 
@@ -1020,6 +1046,12 @@ class DocumentRenameApi(DocumentResource):
 
         try:
             document = DocumentService.rename_document(dataset_id, document_id, args["name"])
+            OperationRecordLog.Operation_log(
+                app=dataset,
+                action="update",
+                type="knowledge",
+                remark=f"修改文档名称: {document.name}"
+            )
         except services.errors.document.DocumentIndexingError:
             raise DocumentIndexingError("Cannot delete document during indexing.")
 

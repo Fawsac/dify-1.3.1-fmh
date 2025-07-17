@@ -37,6 +37,11 @@ class OperationLogListApi(Resource):
             #return {'error': 'Permission denied'}, 403
 
         if args['action_by']:
+            import urllib.parse
+            try:
+                args['action_by'] = urllib.parse.unquote(args['action_by'])
+            except Exception as e:
+                args['action_by'] = args['action_by']
             base_query = base_query.filter(
                 OperationLog.content['metadata']['action_by'].astext.ilike(f'%{args["action_by"]}%')
             )
@@ -126,15 +131,6 @@ class OperationLogListApi(Resource):
     @account_initialization_required
     def post(self):
         """下载操作日志为Excel文件"""
-        '''
-        parser = reqparse.RequestParser()
-        parser.add_argument('action_by', type=str, location='json')
-        parser.add_argument('action', type=str, location='json')
-        parser.add_argument('type', type=str, location='json')
-        parser.add_argument('start_time', type=str, location='json')
-        parser.add_argument('end_time', type=str, location='json')
-        args = parser.parse_args()
-        '''
         json_data = request.get_json()
         if not json_data:
             return {'error': 'Invalid JSON body'}, 400
@@ -157,6 +153,16 @@ class OperationLogListApi(Resource):
             'knowledge': '知识库操作记录',
             'account': '用户操作记录'
         }
+        action_map = {
+            'create': '新增',
+            'update': '修改',
+            'delete': '删除',
+            'signin': '登录',
+            'signout': '登出',
+            'publish': '发布',
+            'restore': '恢复草稿',
+            'query': '查询'
+        }
         file_basename = filename_map.get(args.get('type'), '操作日志')
         # 添加数据量限制
         if len(logs) == 0:
@@ -168,31 +174,68 @@ class OperationLogListApi(Resource):
             filename = f"{file_basename}（前10000条）.xlsx"
         else:
             filename = f"{file_basename}.xlsx"
+        log_type = args.get('type')
+
+        # 根据类型确定列名和数据字段
+        if log_type in ['app', 'workflow']:
+            columns = ['序号', '应用名称', '应用类型', '操作类型', '操作人', '操作内容', '操作IP', '操作时间']
+        elif log_type == 'knowledge':
+            columns = ['序号', '知识库名称', '操作类型', '操作人', '操作内容', '操作IP', '操作时间']
+        elif log_type == 'account':
+            columns = ['序号', '操作类型', '操作人', '操作内容', '操作IP', '操作时间']
+        else:
+            columns = ['序号', '应用名称', '应用类型', '操作类型', '操作人', '操作内容', '操作IP', '操作时间']
 
         # 转换为DataFrame
         data = []
         index = 1
         for log in logs:
-            # 安全获取 metadata 字段
             metadata = log.content.get('metadata', {})
+            action_cn = action_map.get(log.action, log.action)
 
-            data.append({
-                '序号': index,
-                '应用名称': metadata.get('app_name', ''),
-                '应用类型': metadata.get('type', ''),
-                '操作类型': log.action,
-                '操作人': metadata.get('action_by', ''),
-                '操作内容': metadata.get('remark', ''),
-                '操作IP': log.created_ip,
-                '操作时间': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            })
+            if log_type in ['app', 'workflow']:
+                row = {
+                    '序号': index,
+                    '应用名称': metadata.get('app_name', ''),
+                    '应用类型': metadata.get('type', ''),
+                    '操作类型': action_cn,
+                    '操作人': metadata.get('action_by', ''),
+                    '操作内容': metadata.get('remark', ''),
+                    '操作IP': log.created_ip,
+                    '操作时间': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            elif log_type == 'knowledge':
+                row = {
+                    '序号': index,
+                    '知识库名称': metadata.get('knowledge_base_name', metadata.get('app_name', '')),
+                    '操作类型': action_cn,
+                    '操作人': metadata.get('action_by', ''),
+                    '操作内容': metadata.get('remark', ''),
+                    '操作IP': log.created_ip,
+                    '操作时间': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            elif log_type == 'account':
+                row = {
+                    '序号': index,
+                    '操作类型': action_cn,
+                    '操作人': metadata.get('action_by', ''),
+                    '操作内容': metadata.get('remark', ''),
+                    '操作IP': log.created_ip,
+                    '操作时间': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            else:
+                row = {
+                    '序号': index,
+                    '应用名称': metadata.get('app_name', ''),
+                    '应用类型': metadata.get('type', ''),
+                    '操作类型': action_cn,
+                    '操作人': metadata.get('action_by', ''),
+                    '操作内容': metadata.get('remark', ''),
+                    '操作IP': log.created_ip,
+                    '操作时间': log.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            data.append(row)
             index += 1
-            # 定义固定列顺序
-        columns = [
-            '序号', '应用名称', '应用类型',
-            '操作类型', '操作人', '操作内容',
-            '操作IP', '操作时间'
-        ]
 
         df = pd.DataFrame(data)
         # 按指定顺序重排列

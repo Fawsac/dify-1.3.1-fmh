@@ -16,6 +16,7 @@ from extensions.ext_database import db
 from libs.login import login_required
 from models.model import AppMode, AppModelConfig
 from services.app_model_config_service import AppModelConfigService
+from events.record_log import OperationRecordLog
 
 
 class ModelConfigResource(Resource):
@@ -140,6 +141,7 @@ class ModelConfigResource(Resource):
         db.session.commit()
 
         app_model_config_was_updated.send(app_model, app_model_config=new_app_model_config)
+        OperationRecordLog.Operation_log(app_model, "update", "app", "更新模型配置")
 
         return {"result": "success"}
 

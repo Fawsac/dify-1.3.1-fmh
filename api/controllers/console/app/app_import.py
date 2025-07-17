@@ -14,10 +14,10 @@ from controllers.console.wraps import (
 from extensions.ext_database import db
 from fields.app_fields import app_import_check_dependencies_fields, app_import_fields
 from libs.login import login_required
-from models import Account
+from models import Account, AppMode
 from models.model import App
 from services.app_dsl_service import AppDslService, ImportStatus
-
+from events.record_log import OperationRecordLog
 
 class AppImportApi(Resource):
     @setup_required
@@ -60,13 +60,22 @@ class AppImportApi(Resource):
                 app_id=args.get("app_id"),
             )
             session.commit()
-
         # Return appropriate status code based on result
         status = result.status
         if status == ImportStatus.FAILED.value:
             return result.model_dump(mode="json"), 400
         elif status == ImportStatus.PENDING.value:
             return result.model_dump(mode="json"), 202
+        app = session.query(App).filter(
+            App.tenant_id == current_user.current_tenant_id
+        ).order_by(App.created_at.desc()).first()
+        print(app)
+        if app:
+            if app.mode in [AppMode.WORKFLOW.value, AppMode.ADVANCED_CHAT.value]:
+                OperationRecordLog.Operation_log(app, "create", "workflow", "导入workflow应用")
+            else:
+                OperationRecordLog.Operation_log(app, "create", "app", "导入app应用")
+
         return result.model_dump(mode="json"), 200
 
 

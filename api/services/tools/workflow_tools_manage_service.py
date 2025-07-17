@@ -172,7 +172,7 @@ class WorkflowToolManageService:
 
         db.session.add(workflow_tool_provider)
         db.session.commit()
-        OperationRecordLog.Operation_log(app, "updated_workflow_tool", "workflow", "更新发布的workflow工作流")
+        OperationRecordLog.Operation_log(app, "updated_workflow_tool", "workflow", "更新发布为工具的workflow工作流")
 
         if labels is not None:
             ToolLabelManager.update_tool_labels(
@@ -266,7 +266,7 @@ class WorkflowToolManageService:
                 app=app,
                 action="deleted_workflow_tool",
                 type="workflow",
-                remark="删除发布的workflow工作流"
+                remark="删除发布为工具的workflow工作流"
             )
 
         return {"result": "success"} 

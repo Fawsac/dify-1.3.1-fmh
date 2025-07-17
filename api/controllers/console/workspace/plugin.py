@@ -15,7 +15,7 @@ from libs.login import login_required
 from models.account import TenantPluginPermission
 from services.plugin.plugin_permission_service import PluginPermissionService
 from services.plugin.plugin_service import PluginService
-
+from events.record_log import OperationRecordLog
 
 class PluginDebuggingKeyApi(Resource):
     @setup_required
@@ -111,6 +111,11 @@ class PluginUploadFromPkgApi(Resource):
         tenant_id = current_user.current_tenant_id
 
         file = request.files["pkg"]
+        # 获取上传的文件名（包含插件名）
+        original_filename = file.filename
+
+        # 提取插件名（去掉文件扩展名）
+        plugin_name = original_filename.rsplit('.', 1)[0] if '.' in original_filename else original_filename
 
         # check file size
         if file.content_length > dify_config.PLUGIN_MAX_PACKAGE_SIZE:
@@ -119,6 +124,8 @@ class PluginUploadFromPkgApi(Resource):
         content = file.read()
         try:
             response = PluginService.upload_pkg(tenant_id, content)
+            OperationRecordLog.Operation_log(app=None, action="create", type="workflow",
+                                             remark=f"本地上传安装插件：{plugin_name}")
         except PluginDaemonClientSideError as e:
             raise ValueError(e)
 
@@ -442,6 +449,8 @@ class PluginUninstallApi(Resource):
         tenant_id = current_user.current_tenant_id
 
         try:
+            OperationRecordLog.Operation_log(app=None, action="delete", type="workflow", remark="删除插件")
+
             return {"success": PluginService.uninstall(tenant_id, args["plugin_installation_id"])}
         except PluginDaemonClientSideError as e:
             raise ValueError(e)

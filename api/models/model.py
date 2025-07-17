@@ -1488,7 +1488,15 @@ class Site(Base):
 
     @property
     def app_base_url(self):
-        return dify_config.APP_WEB_URL or request.url_root.rstrip("/")
+        original_url = dify_config.APP_WEB_URL or request.url_root.rstrip("/")
+        print(f"Original URL: {original_url}")  # 打印原始URL用于调试
+        if "://" in original_url:
+            scheme, rest = original_url.split("://", 1)
+            # 移除端口部分（如果存在）
+            host = rest.split(":")[0] if ":" in rest else rest.split("/")[0]
+            return f"{scheme}://{host}"
+        return original_url
+        #return dify_config.APP_WEB_URL or request.url_root.rstrip("/")
 
 
 class ApiToken(Base):

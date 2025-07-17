@@ -12,7 +12,7 @@ from services.entities.knowledge_entities.knowledge_entities import (
     MetadataOperationData,
 )
 from services.metadata_service import MetadataService
-
+from events.record_log import OperationRecordLog
 
 class DatasetMetadataCreateApi(Resource):
     @setup_required
@@ -34,6 +34,12 @@ class DatasetMetadataCreateApi(Resource):
         DatasetService.check_dataset_permission(dataset, current_user)
 
         metadata = MetadataService.create_metadata(dataset_id_str, metadata_args)
+        OperationRecordLog.Operation_log(
+            app=dataset,
+            action="create",
+            type="knowledge",
+            remark="新增元数据"
+        )
         return metadata, 201
 
     @setup_required
@@ -67,6 +73,12 @@ class DatasetMetadataApi(Resource):
         DatasetService.check_dataset_permission(dataset, current_user)
 
         metadata = MetadataService.update_metadata_name(dataset_id_str, metadata_id_str, args.get("name"))
+        OperationRecordLog.Operation_log(
+            app=dataset,
+            action="update",
+            type="knowledge",
+            remark="更新元数据"
+        )
         return metadata, 200
 
     @setup_required
@@ -82,6 +94,12 @@ class DatasetMetadataApi(Resource):
         DatasetService.check_dataset_permission(dataset, current_user)
 
         MetadataService.delete_metadata(dataset_id_str, metadata_id_str)
+        OperationRecordLog.Operation_log(
+            app=dataset,
+            action="delete",
+            type="knowledge",
+            remark="删除元数据"
+        )
         return {"result": "success"}, 204
 
 
@@ -109,8 +127,20 @@ class DatasetMetadataBuiltInFieldActionApi(Resource):
 
         if action == "enable":
             MetadataService.enable_built_in_field(dataset)
+            OperationRecordLog.Operation_log(
+                app=dataset,
+                action="update",
+                type="knowledge",
+                remark="启用内置元数据"
+            )
         elif action == "disable":
             MetadataService.disable_built_in_field(dataset)
+            OperationRecordLog.Operation_log(
+                app=dataset,
+                action="update",
+                type="knowledge",
+                remark="停用内置元数据"
+            )
         return 200
 
 
