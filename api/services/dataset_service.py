@@ -768,7 +768,21 @@ class DocumentService:
     @staticmethod
     def delete_documents(dataset: Dataset, document_ids: list[str]):
         documents = db.session.query(Document).filter(Document.id.in_(document_ids)).all()
-        OperationRecordLog.Operation_log(action="delete", type="knowledge", app=dataset, remark="删除知识库中的文档")
+        document_names = [doc.name for doc in documents]
+        if document_names:
+            if len(document_names) == 1:
+                remark = f"删除文档: {document_names[0]}"
+            else:
+                # 对于批量删除，显示前3个文档名并加上总数
+                displayed_names = ", ".join(document_names[:3])
+                if len(document_names) > 3:
+                    remark = f"批量删除文档: {displayed_names} 等 {len(document_names)} 个文档"
+                else:
+                    remark = f"批量删除文档: {displayed_names}"
+        else:
+            remark = "删除知识库中的文档"  # 后备文本
+
+        OperationRecordLog.Operation_log(action="delete", type="knowledge", app=dataset, remark=remark)
 
         file_ids = [
             document.data_source_info_dict["upload_file_id"]

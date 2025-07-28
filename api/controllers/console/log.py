@@ -39,13 +39,15 @@ class OperationLogListApi(Resource):
         if args['action_by']:
             import urllib.parse
             try:
-                args['action_by'] = urllib.parse.unquote(args['action_by'])
+                action_by_value = urllib.parse.unquote(args['action_by'])
             except Exception as e:
-                args['action_by'] = args['action_by']
+                action_by_value = args['action_by']
+            '''base_query = base_query.filter(
+                cast(OperationLog.content['metadata']['action_by'],String).ilike(f'%{args["action_by"]}%')
+            )'''
             base_query = base_query.filter(
-                OperationLog.content['metadata']['action_by'].astext.ilike(f'%{args["action_by"]}%')
-            )
-
+                text("coalesce(cast(content->'metadata'->>'action_by' as text), '') ilike :action_by_value")).params(
+                action_by_value=f'%{action_by_value}%')
         if args['action']:
             base_query = base_query.filter(
                 OperationLog.action.ilike(f'%{args["action"]}%')
@@ -64,7 +66,6 @@ class OperationLogListApi(Resource):
                 )
 
         if args['start_time'] or args['end_time']:
-            args['start_time'] = datetime.strptime(args['start_time'], '%Y-%m-%d %H:%M:%S')
             if args['start_time'] and not args['end_time']:
                 base_query = base_query.filter(
                     OperationLog.created_at >= args['start_time']

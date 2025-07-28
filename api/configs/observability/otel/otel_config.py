@@ -27,7 +27,7 @@ class OTelConfig(BaseSettings):
         default="otlp",
     )
 
-    OTEL_SAMPLING_RATE: float = Field(default=0.1, description="Sampling rate for traces (0.0 to 1.0)")
+    OTEL_SAMPLING_RATE: float = Field(default=1.0, description="Sampling rate for traces (0.0 to 1.0)")
 
     OTEL_BATCH_EXPORT_SCHEDULE_DELAY: int = Field(
         default=5000, description="Batch export schedule delay in milliseconds"

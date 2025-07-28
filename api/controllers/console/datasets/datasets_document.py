@@ -288,13 +288,17 @@ class DatasetDocumentListApi(Resource):
 
         try:
             documents, batch = DocumentService.save_document_with_dataset_id(dataset, knowledge_config, current_user)
+            document_names = [doc.name for doc in documents]  # 获取所有文档名
+            if document_names:
+                remark = f"上传文档: {document_names[0]}"
+                OperationRecordLog.Operation_log(app=dataset, action="create", type="knowledge", remark=remark)
+
         except ProviderTokenNotInitError as ex:
             raise ProviderNotInitializeError(ex.description)
         except QuotaExceededError:
             raise ProviderQuotaExceededError()
         except ModelCurrentlyNotSupportError:
             raise ProviderModelCurrentlyNotSupportError()
-        OperationRecordLog.Operation_log(app=dataset, action="create", type="knowledge", remark="上传文档")
         return {"documents": documents, "batch": batch}
 
     @setup_required

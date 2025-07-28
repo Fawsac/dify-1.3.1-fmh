@@ -4,10 +4,13 @@ import os
 import platform
 import socket
 import sys
+import time
 from typing import Union
 
+import requests
 from celery.signals import worker_init  # type: ignore
 from flask_login import user_loaded_from_request, user_logged_in  # type: ignore
+from prometheus_client import REGISTRY
 
 from configs import dify_config
 from dify_app import DifyApp
@@ -27,21 +30,40 @@ def on_user_loaded(_sender, user):
 
 
 def init_app(app: DifyApp):
+
     def is_celery_worker():
         return "celery" in sys.argv[0].lower()
+    print("🧾 当前进程命令:", sys.argv)
+    print("🧾 是否是 Celery Worker:", is_celery_worker())
 
     def instrument_exception_logging():
         exception_handler = ExceptionLoggingHandler()
         logging.getLogger().addHandler(exception_handler)
 
     def init_flask_instrumentor(app: DifyApp):
+        print("🔧 初始化 FlaskInstrumentor")  # 添加调试输出
+
         meter = get_meter("http_metrics", version=dify_config.CURRENT_VERSION)
         _http_response_counter = meter.create_counter(
             "http.server.response.count", description="Total number of HTTP responses by status code", unit="{response}"
         )
+        # 添加请求持续时间直方图
+        _http_duration_histogram = meter.create_histogram(
+            "http.server.duration",
+            description="HTTP request duration in milliseconds",
+            unit="ms"
+        )
 
+        # 添加活跃请求数量的上下文仪表
+        _http_active_requests = meter.create_up_down_counter(
+            "http.server.active_requests",
+            description="Number of active HTTP requests"
+        )
         def response_hook(span: Span, status: str, response_headers: list):
             if span and span.is_recording():
+                start_time = getattr(span, '_start_time', time.time_ns())
+                duration = (time.time_ns() - start_time) / 1_000_000  # 转换为毫秒
+
                 if status.startswith("2"):
                     span.set_status(StatusCode.OK)
                 else:
@@ -51,6 +73,20 @@ def init_app(app: DifyApp):
                 status_code = int(status)
                 status_class = f"{status_code // 100}xx"
                 _http_response_counter.add(1, {"status_code": status_code, "status_class": status_class})
+
+                _http_duration_histogram.record(duration, {"status_code": status_code})
+
+        # 在请求开始时增加活跃请求数量
+        def before_request():
+            _http_active_requests.add(1)
+
+        # 在请求结束时减少活跃请求数量
+        def after_request(response):
+            _http_active_requests.add(-1)
+            return response
+
+        app.before_request(before_request)
+        app.after_request(after_request)
 
         instrumentor = FlaskInstrumentor()
         if dify_config.DEBUG:
@@ -149,15 +185,84 @@ def init_app(app: DifyApp):
     set_tracer_provider(provider)
     exporter: Union[OTLPSpanExporter, ConsoleSpanExporter]
     metric_exporter: Union[OTLPMetricExporter, ConsoleMetricExporter]
-    if dify_config.OTEL_EXPORTER_TYPE == "otlp":
+    #if dify_config.OTEL_EXPORTER_TYPE == "otlp":
+
+    if dify_config.OTEL_EXPORTER_TYPE == "prometheus":
+        from opentelemetry.exporter.prometheus import PrometheusMetricReader
+        from prometheus_client import start_http_server
+        # 确保指标被注册到 Prometheus 全局 registry
+        def find_available_port(start_port=9464, end_port=9500):
+            for port in range(start_port, end_port + 1):
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                        s.bind(("localhost", port))
+                    return port
+                except OSError:
+                    continue
+            return 0  # 如果找不到可用端口，使用随机端口
+
+        port = find_available_port()
+        if port == 0:
+            print("⚠️ 未找到9464-9500范围内的可用端口，使用随机端口")
+
+        # 启动服务器并获取服务器对象
+        server_info = start_http_server(port)
+        http_server = server_info[0]  # 获取第一个元素：HTTPServer 实例
+        actual_port = http_server.server_port
+
+        print(f"Prometheus服务器已启动，端口: {actual_port}")
+        # 设置环境变量供测试脚本使用
+        os.environ['PROMETHEUS_METRICS_PORT'] = str(actual_port)
+
+        # 立即检查服务器是否在监听
+        def check_port_listening():
+            """检查端口是否真正在监听"""
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(1)
+                    s.connect(('localhost', actual_port))
+                print(f"✅ 端口 {actual_port} 正在监听")
+                return True
+            except Exception as e:
+                print(f"❌ 端口 {actual_port} 未在监听: {str(e)}")
+                return False
+
+        # 执行端口检查
+        if not check_port_listening():
+            print("⚠️ 服务器可能未正确启动")
+        # 先设置 MeterProvider 再创建 PrometheusMetricReader
+        reader = PrometheusMetricReader()
+        set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+
+        # 验证服务器是否运行
+        def check_server():
+            time.sleep(1)
+            try:
+                response = requests.get(f"http://localhost:{actual_port}/metrics", timeout=1)
+                print(f"服务器验证: {'✅ 成功' if response.status_code == 200 else f'❌ 状态码 {response.status_code}'}")
+            except Exception as e:
+                print(f"服务器验证失败: {str(e)}")
+        #reader = PrometheusMetricReader()
+        import threading
+        threading.Thread(target=check_server).start()
+
+        # 设置跟踪导出器
         exporter = OTLPSpanExporter(
+            endpoint=dify_config.OTLP_BASE_ENDPOINT + "/v1/traces",
+            headers={"Authorization": f"Bearer {dify_config.OTLP_API_KEY}"},
+        )
+
+        # 不需要 metric_exporter，因为指标由 PrometheusMetricReader 处理
+        metric_exporter = None
+        '''exporter = OTLPSpanExporter(
             endpoint=dify_config.OTLP_BASE_ENDPOINT + "/v1/traces",
             headers={"Authorization": f"Bearer {dify_config.OTLP_API_KEY}"},
         )
         metric_exporter = OTLPMetricExporter(
             endpoint=dify_config.OTLP_BASE_ENDPOINT + "/v1/metrics",
             headers={"Authorization": f"Bearer {dify_config.OTLP_API_KEY}"},
-        )
+        )'''
     else:
         # Fallback to console exporter
         exporter = ConsoleSpanExporter()
@@ -172,14 +277,65 @@ def init_app(app: DifyApp):
             export_timeout_millis=dify_config.OTEL_BATCH_EXPORT_TIMEOUT,
         )
     )
-    reader = PeriodicExportingMetricReader(
-        metric_exporter,
-        export_interval_millis=dify_config.OTEL_METRIC_EXPORT_INTERVAL,
-        export_timeout_millis=dify_config.OTEL_METRIC_EXPORT_TIMEOUT,
-    )
-    set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+    if dify_config.OTEL_EXPORTER_TYPE != "prometheus":
+        reader = PeriodicExportingMetricReader(
+            metric_exporter,
+            export_interval_millis=dify_config.OTEL_METRIC_EXPORT_INTERVAL,
+            export_timeout_millis=dify_config.OTEL_METRIC_EXPORT_TIMEOUT,
+        )
+        set_meter_provider(MeterProvider(resource=resource, metric_readers=[reader]))
+    else:
+    # Prometheus 分支中已经设置了 MeterProvider
+        pass
+
+    def init_custom_metrics():
+        meter = get_meter("dify.business", version=dify_config.CURRENT_VERSION)
+
+        # 用户操作计数器
+        _user_operations_counter = meter.create_counter(
+            "dify.user.operations",
+            description="Count of user operations"
+        )
+
+        # 模型调用计数器
+        _model_calls_counter = meter.create_counter(
+            "dify.model.calls",
+            description="Count of model API calls"
+        )
+
+        # 模型调用延迟直方图
+        _model_latency_histogram = meter.create_histogram(
+            "dify.model.latency",
+            description="Model API call latency in milliseconds",
+            unit="ms"
+        )
+
+        # 存储用量仪表
+        _storage_usage_gauge = meter.create_observable_gauge(
+            "dify.storage.usage",
+            description="Current storage usage in bytes",
+            callbacks=[get_storage_usage]
+        )
+
+        # 将指标存储在全局变量中，以便在应用中使用
+        app.extensions['metrics'] = {
+            'user_operations': _user_operations_counter,
+            'model_calls': _model_calls_counter,
+            'model_latency': _model_latency_histogram
+        }
+
+    def get_storage_usage(callback_options):
+        # 这里应该实现实际的存储用量获取逻辑
+        # 作为示例返回0
+        yield {
+            "value": 0,
+            "attributes": {"storage_type": "database"}
+        }
     if not is_celery_worker():
+        print("🔧 正在初始化 FlaskInstrumentor")  # 添加调试输出
+        meter = get_meter("http_metrics", version=dify_config.CURRENT_VERSION)
         init_flask_instrumentor(app)
+        init_custom_metrics()
         CeleryInstrumentor(tracer_provider=get_tracer_provider(), meter_provider=get_meter_provider()).instrument()
     instrument_exception_logging()
     init_sqlalchemy_instrumentor(app)

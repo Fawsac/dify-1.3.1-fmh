@@ -19,6 +19,7 @@ RUN apt-get update \
 
 # Install Python dependencies
 COPY pyproject.toml uv.lock ./
+RUN uv lock
 RUN uv sync --locked
 
 # production stage
